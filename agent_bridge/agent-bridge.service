@@ -1,0 +1,27 @@
+[Unit]
+Description=Mission Control — Agent Bridge
+Documentation=https://github.com/seu-usuario/missioncontroloe
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# ── Altere para o seu usuário e caminho ──
+User=ubuntu
+WorkingDirectory=/home/ubuntu/missioncontrol
+
+ExecStart=/usr/bin/python3 /home/ubuntu/missioncontrol/agent_bridge.py
+
+# Reinicia automaticamente se cair
+Restart=always
+RestartSec=5
+
+# Logs vão para journalctl
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=agent-bridge
+
+# Variáveis de ambiente extras (opcional)
+# Environment="DISPLAY=:0"
+
+[Install]
+WantedBy=multi-user.target

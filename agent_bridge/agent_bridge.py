@@ -25,9 +25,10 @@ SUPABASE_URL = "https://yzlvbarddjsrsbaffssm.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bHZiYXJkZGpzcnNiYWZmc3NtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNjYyNTQsImV4cCI6MjA4ODY0MjI1NH0.mAP51Qsiy78GJYtjWfq851ZN_KmdrdYjmQBaDfB5rzA"
 
 # ── Configurações ─────────────────────────────────────────────────────────────
-POLL_INTERVAL   = 5   # segundos entre cada checagem
-LOG_FLUSH_LINES = 10  # envia log ao Supabase a cada N linhas
-MAX_PARALLEL    = 3   # máximo de robôs rodando ao mesmo tempo
+POLL_INTERVAL      = 5   # segundos entre cada checagem
+LOG_FLUSH_LINES    = 10  # envia log ao Supabase a cada N linhas
+MAX_PARALLEL       = 3   # máximo de robôs rodando ao mesmo tempo
+HEARTBEAT_INTERVAL = 30  # segundos entre cada heartbeat
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ HEADERS = {
 
 running_executions: set[str] = set()
 lock = threading.Lock()
+last_heartbeat: float = 0
 
 
 def detect_host() -> str:
@@ -98,6 +100,32 @@ def get_script_path(robot_id: str) -> str | None:
     except Exception as e:
         print(f"[bridge] Erro ao buscar script_path: {e}", flush=True)
         return None
+
+
+def send_heartbeat():
+    """Avisa o portal que o bridge está vivo."""
+    global last_heartbeat
+    now = time.time()
+    if now - last_heartbeat < HEARTBEAT_INTERVAL:
+        return
+    last_heartbeat = now
+    try:
+        ts = datetime.now(timezone.utc).isoformat()
+        host = detect_host()
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.bridge_last_seen",
+            headers=HEADERS,
+            json={"value": ts, "updated_at": ts},
+            timeout=5,
+        )
+        requests.patch(
+            f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.bridge_host",
+            headers=HEADERS,
+            json={"value": host, "updated_at": ts},
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[bridge] Heartbeat falhou: {e}", flush=True)
 
 
 def poll_pending() -> list[dict]:
@@ -265,6 +293,8 @@ def main():
 
     while True:
         try:
+            send_heartbeat()
+
             with lock:
                 slots = MAX_PARALLEL - len(running_executions)
 

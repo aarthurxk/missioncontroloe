@@ -32,18 +32,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfileAndRole = useCallback(async (userId: string) => {
+  const fetchProfileAndRole = useCallback(async (userId: string, attempt = 1) => {
     try {
-      const [{ data: profileData }, { data: roleText }] = await Promise.all([
+      const [profileRes, roleRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", userId).single() as any,
         supabase.rpc("get_user_role", { _user_id: userId }) as any,
       ]);
-      setProfile(profileData ?? null);
-      setRole((roleText as AppRole) ?? null);
+      const profileData = profileRes.data ?? null;
+      const roleText = roleRes.data as AppRole ?? null;
+      setProfile(profileData);
+      setRole(roleText);
+
+      // Se não veio role mas usuário existe, tentar novamente (até 3x)
+      if (!roleText && attempt < 3) {
+        setTimeout(() => fetchProfileAndRole(userId, attempt + 1), 1500);
+      }
     } catch (err) {
       console.error("Failed to fetch profile/role:", err);
-      setProfile(null);
-      setRole(null);
+      // Não reseta role/profile em caso de erro de rede — mantém o estado anterior
+      if (attempt < 3) {
+        setTimeout(() => fetchProfileAndRole(userId, attempt + 1), 1500);
+      }
     }
   }, []);
 

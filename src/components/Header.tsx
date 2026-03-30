@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { Zap, LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock } from "lucide-react";
+import { Zap, LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle } from "lucide-react";
 
 interface HeaderProps {
   runningCount: number;
@@ -12,7 +12,7 @@ interface HeaderProps {
 
 export function Header({ runningCount, isConnected }: HeaderProps) {
   const [time, setTime] = useState(new Date());
-  const { profile, role, signOut } = useAuth();
+  const { user, profile, role, signOut } = useAuth();
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
@@ -52,12 +52,18 @@ export function Header({ runningCount, isConnected }: HeaderProps) {
             {time.toLocaleTimeString('pt-BR')}
           </span>
 
-          {profile && (
+          {user && (
             <div className="flex items-center gap-2 border-l border-border pl-2 md:pl-4">
-              <span className="text-sm">{profile.avatar_emoji}</span>
+              {profile ? (
+                <span className="text-sm">{profile.avatar_emoji}</span>
+              ) : (
+                <UserCircle className="h-5 w-5 text-muted-foreground" />
+              )}
               <div className="hidden sm:block">
-                <p className="text-xs font-medium leading-tight">{profile.name}</p>
-                <p className="text-[10px] text-muted-foreground uppercase">{role}</p>
+                <p className="text-xs font-medium leading-tight">
+                  {profile?.name ?? user.email?.split("@")[0] ?? "Usuário"}
+                </p>
+                <p className="text-[10px] text-muted-foreground uppercase">{role ?? "—"}</p>
               </div>
               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut} title="Sair">
                 <LogOut className="h-4 w-4" />

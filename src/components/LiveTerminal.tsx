@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Square, Loader2, Terminal, ChevronDown } from "lucide-react";
+import { Square, Loader2, Terminal } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -105,54 +106,70 @@ export function LiveTerminal({ executionId, initialLog, status: initialStatus, c
   return (
     <div className={cn("rounded-lg border border-border bg-[#0d1117] overflow-hidden flex flex-col", className)}>
       {/* Mac-style terminal header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 bg-[#161b22] shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <div className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-            <div className="h-3 w-3 rounded-full bg-[#ffbd2e]" />
-            <div className="h-3 w-3 rounded-full bg-[#28c940]" />
+      <TooltipProvider delayDuration={300}>
+        <div className="flex items-center justify-between px-3 py-2 border-b border-white/5 bg-[#161b22] shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="h-3 w-3 rounded-full bg-[#ff5f57] hover:brightness-125 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    onClick={handleStop}
+                    disabled={!isRunning || stopping}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Parar execução</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="h-3 w-3 rounded-full bg-[#ffbd2e] hover:brightness-125 transition cursor-pointer"
+                    onClick={() => setLog("")}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Limpar output</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="h-3 w-3 rounded-full bg-[#28c940] hover:brightness-125 transition cursor-pointer"
+                    onClick={() => {
+                      setAutoScroll(true);
+                      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Ir ao fim</TooltipContent>
+              </Tooltip>
+            </div>
+            <Terminal className="h-3 w-3 text-muted-foreground" />
+            <span className="font-mono text-[11px] text-muted-foreground">terminal — robot agent</span>
           </div>
-          <Terminal className="h-3 w-3 text-muted-foreground" />
-          <span className="font-mono text-[11px] text-muted-foreground">terminal — robot agent</span>
+          <div className="flex items-center gap-3">
+            {isRunning && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <RunTimer startedAt={startedAt} />
+                </div>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="h-6 gap-1 text-[10px] px-2 py-0"
+                  onClick={handleStop}
+                  disabled={stopping}
+                >
+                  <Square className="h-2.5 w-2.5" />
+                  Parar
+                </Button>
+              </>
+            )}
+            {!isRunning && (
+              <span className={cn("font-mono text-[10px]", statusColor)}>{statusLabel}</span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          {isRunning && (
-            <>
-              <div className="flex items-center gap-1.5">
-                <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                <RunTimer startedAt={startedAt} />
-              </div>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="h-6 gap-1 text-[10px] px-2 py-0"
-                onClick={handleStop}
-                disabled={stopping}
-              >
-                <Square className="h-2.5 w-2.5" />
-                Parar
-              </Button>
-            </>
-          )}
-          {!isRunning && (
-            <span className={cn("font-mono text-[10px]", statusColor)}>{statusLabel}</span>
-          )}
-          {!autoScroll && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 gap-1 text-[10px] px-2 py-0 text-muted-foreground"
-              onClick={() => {
-                setAutoScroll(true);
-                bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-              }}
-            >
-              <ChevronDown className="h-3 w-3" />
-              Ir ao fim
-            </Button>
-          )}
-        </div>
-      </div>
+      </TooltipProvider>
 
       {/* Terminal body */}
       <div

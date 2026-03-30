@@ -2,7 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { LiveTerminal } from "./LiveTerminal";
-import { AlertTriangle, ClipboardCopy, Terminal, Square, Loader2 } from "lucide-react";
+import { AlertTriangle, ClipboardCopy, Terminal, Square, Loader2, Trash2 } from "lucide-react";
 import type { Execution, Robot } from "@/lib/types";
 import { format, isToday } from "date-fns";
 import { useEffect, useState } from "react";
@@ -12,6 +12,17 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type ExecWithRobot = Execution & { robots: Robot };
 

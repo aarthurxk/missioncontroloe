@@ -1,28 +1,24 @@
 
 
-## Adicionar botões "Limpar" em cada coluna da Mission Queue
+## Bolinhas funcionais + Output real do terminal da VPS
 
 ### O que será feito
-Adicionar um botão de deletar/limpar no header de cada coluna (Pendentes, In Progress, Concluídas Hoje) que apaga todas as execuções daquela coluna. O botão só aparece quando há itens na coluna, e exibe um diálogo de confirmação antes de deletar.
 
-### Implementação
+1. **Substituir as bolinhas decorativas por botões funcionais** no header do LiveTerminal:
+   - 🔴 **Vermelha → Parar/Fechar**: Para a execução (se rodando) ou fecha o terminal
+   - 🟡 **Amarela → Limpar output**: Limpa o log visível no terminal (visual only, não apaga do banco)
+   - 🟢 **Verde → Scroll ao fim**: Rola até o final do output (equivalente ao "Ir ao fim" atual)
 
-**Arquivo: `src/components/MissionQueue.tsx`**
+2. **O output já é do terminal da VPS** — o `agent_bridge.py` captura o `stdout` do script via `subprocess.Popen` e faz streaming para a coluna `log_output` da tabela `executions`. O LiveTerminal já exibe isso em tempo real via Realtime subscription. Não há mudança de arquitetura necessária aqui.
 
-1. Importar `Trash2` do lucide-react e `AlertDialog` components
-2. Atualizar o componente `Column` para aceitar uma prop `onClear` opcional e o count
-3. Quando `onClear` está presente e `count > 0`, renderizar um botão com ícone de lixeira no header da coluna
-4. Criar um `AlertDialog` de confirmação ("Tem certeza que deseja deletar X execuções?")
-5. No `MissionQueue`, criar 3 handlers:
-   - `clearPending`: deleta execuções com `status = 'pending'` dos IDs filtrados
-   - `clearRunning`: deleta execuções com `status in ('running', 'cancelling')` dos IDs filtrados
-   - `clearCompleted`: deleta execuções concluídas hoje dos IDs filtrados
-6. Cada handler faz `supabase.from('executions').delete().in('id', ids)` e invalida o query cache
-7. No mobile, adicionar o mesmo botão no feed
+### Arquivo: `src/components/LiveTerminal.tsx`
 
-### Detalhes técnicos
-- Deletar por array de IDs (não por status genérico) para evitar apagar dados de outros dias
-- Usar `AlertDialog` já existente no projeto para confirmação
-- Invalidar `queryKey: ["executions"]` após delete
-- Toast de sucesso após limpar
+**Mudanças no header do terminal:**
+- Remover as 3 `div` decorativas com cores fixas
+- No lugar, renderizar 3 botões circulares interativos com tooltips:
+  - **Vermelho** (`onClick`): se `isRunning`, chama `handleStop()`; senão, não faz nada (ou fica desabilitado)
+  - **Amarelo** (`onClick`): `setLog("")` — limpa o output visualmente
+  - **Verde** (`onClick`): scroll to bottom + `setAutoScroll(true)`
+- Cada bolinha mantém o visual (mesmo tamanho/cor) mas ganha `cursor-pointer`, `hover:brightness`, e um `Tooltip` explicativo
+- Remover o botão "Ir ao fim" separado (agora é a bolinha verde)
 

@@ -196,20 +196,54 @@ function Column({
   title,
   children,
   count,
+  onClear,
 }: {
   title: string;
   children: React.ReactNode;
   count: number;
+  onClear?: () => Promise<void>;
 }) {
+  const [clearing, setClearing] = useState(false);
+
+  const handleClear = async () => {
+    if (!onClear) return;
+    setClearing(true);
+    await onClear();
+    setClearing(false);
+  };
+
   return (
     <div className="flex flex-col min-w-0 min-h-0 h-full overflow-hidden">
       <div className="flex items-center gap-2 border-b p-3 md:p-4">
-        <h3 className="text-xs md:text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-xs md:text-sm font-semibold uppercase tracking-wider text-muted-foreground flex-1">
           {title}
         </h3>
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
           {count}
         </span>
+        {onClear && count > 0 && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Limpar {title.toLowerCase()}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja deletar {count} execuç{count === 1 ? "ão" : "ões"}? Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClear} disabled={clearing}>
+                  {clearing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Deletar"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
       <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-2 p-2 md:p-3">{children}</div>

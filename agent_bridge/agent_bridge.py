@@ -113,17 +113,12 @@ def send_heartbeat():
         ts = datetime.now(timezone.utc).isoformat()
         host = detect_host()
         requests.patch(
-            f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.bridge_last_seen",
-            headers=HEADERS,
-            json={"value": ts, "updated_at": ts},
+            f"{SUPABASE_URL}/rest/v1/bridge_status?id=eq.singleton",
+            headers={**HEADERS, "Prefer": "return=minimal"},
+            json={"last_seen": ts, "host": host, "updated_at": ts},
             timeout=5,
         )
-        requests.patch(
-            f"{SUPABASE_URL}/rest/v1/app_settings?key=eq.bridge_host",
-            headers=HEADERS,
-            json={"value": host, "updated_at": ts},
-            timeout=5,
-        )
+        print(f"[bridge] ♥ Heartbeat enviado ({host})", flush=True)
     except Exception as e:
         print(f"[bridge] Heartbeat falhou: {e}", flush=True)
 

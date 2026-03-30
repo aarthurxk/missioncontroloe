@@ -13,31 +13,26 @@ export function useBridgeStatus(): BridgeStatus {
   const [host, setHost] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
-  // Busca inicial + subscribe realtime
   useEffect(() => {
     const fetchStatus = async () => {
-      const { data } = await supabase
-        .from("app_settings" as any)
-        .select("key,value")
-        .in("key", ["bridge_last_seen", "bridge_host"]);
+      const { data } = await (supabase as any)
+        .from("bridge_status")
+        .select("last_seen,host")
+        .eq("id", "singleton")
+        .single();
 
-      if (data) {
-        const ls = (data as any[]).find((r) => r.key === "bridge_last_seen");
-        const h  = (data as any[]).find((r) => r.key === "bridge_host");
-        if (ls?.value) setLastSeen(new Date(ls.value));
-        if (h?.value)  setHost(h.value);
-      }
+      if (data?.last_seen) setLastSeen(new Date(data.last_seen));
+      if (data?.host)      setHost(data.host);
     };
 
     fetchStatus();
 
-    // Realtime: atualiza quando bridge escreve heartbeat
     const channel = supabase
-      .channel("bridge-heartbeat")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "app_settings" }, (payload) => {
+      .channel("bridge-status-realtime")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "bridge_status" }, (payload) => {
         const row = payload.new as any;
-        if (row.key === "bridge_last_seen" && row.value) setLastSeen(new Date(row.value));
-        if (row.key === "bridge_host" && row.value) setHost(row.value);
+        if (row.last_seen) setLastSeen(new Date(row.last_seen));
+        if (row.host)      setHost(row.host);
       })
       .subscribe();
 
@@ -51,7 +46,6 @@ export function useBridgeStatus(): BridgeStatus {
   }, []);
 
   const secondsAgo = lastSeen ? Math.floor((now - lastSeen.getTime()) / 1000) : null;
-  // Considera online se último heartbeat foi há menos de 90s (3 ciclos de 30s)
   const isOnline = secondsAgo !== null && secondsAgo < 90;
 
   return { isOnline, lastSeen, host, secondsAgo };

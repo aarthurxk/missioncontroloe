@@ -32,6 +32,63 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_heartbeats: {
+        Row: {
+          host_name: string
+          id: string
+          last_error: string | null
+          last_seen_at: string
+          metadata: Json | null
+          running_count: number
+          started_at: string
+          status: string
+          version: string | null
+        }
+        Insert: {
+          host_name: string
+          id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          metadata?: Json | null
+          running_count?: number
+          started_at?: string
+          status?: string
+          version?: string | null
+        }
+        Update: {
+          host_name?: string
+          id?: string
+          last_error?: string | null
+          last_seen_at?: string
+          metadata?: Json | null
+          running_count?: number
+          started_at?: string
+          status?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      bridge_status: {
+        Row: {
+          host: string | null
+          id: string
+          last_seen: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          host?: string | null
+          id?: string
+          last_seen?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          host?: string | null
+          id?: string
+          last_seen?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       executions: {
         Row: {
           duration_seconds: number | null

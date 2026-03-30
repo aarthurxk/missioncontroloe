@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,17 +12,6 @@ const Setup = () => {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.rpc("has_any_users") as any;
-      if (data === true) {
-        navigate("/login", { replace: true });
-      }
-      setChecking(false);
-    })();
-  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +32,6 @@ const Setup = () => {
       return;
     }
 
-    // Sign in after setup
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) {
       setError("Admin criado, mas falha ao entrar: " + signInError.message);
@@ -54,14 +42,6 @@ const Setup = () => {
     navigate("/");
   };
 
-  if (checking) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <Zap className="h-8 w-8 animate-pulse text-primary" />
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
@@ -71,7 +51,7 @@ const Setup = () => {
             MISSION CONTROL
           </h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-success" />
+            <ShieldCheck className="h-4 w-4 text-green-500" />
             Configuração inicial — Criar admin
           </div>
         </div>
@@ -82,7 +62,7 @@ const Setup = () => {
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Lucas"
+              placeholder="Ex: Arthur"
               required
               className="bg-card border-border"
             />
@@ -96,6 +76,7 @@ const Setup = () => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="admin@empresa.com"
               required
+              autoComplete="email"
               className="bg-card border-border"
             />
           </div>
@@ -108,6 +89,7 @@ const Setup = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 6 caracteres"
               required
+              autoComplete="new-password"
               className="bg-card border-border"
             />
           </div>
@@ -123,6 +105,17 @@ const Setup = () => {
             {loading ? "Criando…" : "Criar conta admin"}
           </Button>
         </form>
+
+        <p className="text-center text-xs text-muted-foreground">
+          Já tem conta?{" "}
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className="underline hover:text-foreground transition-colors"
+          >
+            Fazer login
+          </button>
+        </p>
       </div>
     </div>
   );

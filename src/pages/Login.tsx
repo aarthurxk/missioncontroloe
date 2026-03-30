@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { Zap, LogIn } from "lucide-react";
 
 const Login = () => {
@@ -13,31 +12,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Verificar se precisa de setup — com timeout para não bloquear
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
-
-    (async () => {
-      try {
-        const { data } = await supabase.rpc("has_any_users") as any;
-        // Só redireciona para setup se explicitamente retornar false (boolean)
-        if (data === false) {
-          navigate("/setup", { replace: true });
-        }
-      } catch {
-        // Falha silenciosa — mostra login normalmente
-      } finally {
-        clearTimeout(timeout);
-      }
-    })();
-
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
-  }, [navigate]);
 
   // Redirecionar se já está logado
   useEffect(() => {
@@ -61,7 +35,6 @@ const Login = () => {
     }
   };
 
-  // Formulário sempre renderiza — nunca bloqueia
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
@@ -108,7 +81,11 @@ const Login = () => {
             </div>
           )}
 
-          <Button type="submit" className="w-full gap-2" disabled={loading || authLoading}>
+          <Button
+            type="submit"
+            className="w-full gap-2"
+            disabled={loading}
+          >
             <LogIn className="h-4 w-4" />
             {loading ? "Entrando…" : "Entrar"}
           </Button>

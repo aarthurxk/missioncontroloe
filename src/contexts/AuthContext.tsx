@@ -24,35 +24,27 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export const useAuth = () => useContext(AuthContext);
 
-const AUTH_TIMEOUT = 3000;
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfileAndRole = useCallback(async (userId: string, attempt = 1) => {
+  const fetchProfileAndRole = useCallback(async (userId: string) => {
     try {
-      const [profileRes, roleRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", userId).single() as any,
-        supabase.rpc("get_user_role", { _user_id: userId }) as any,
+      const [profileRes, roleRes] = await Promise.allSettled([
+        supabase.from("profiles").select("*").eq("id", userId).single(),
+        supabase.rpc("get_user_role", { _user_id: userId }),
       ]);
-      const profileData = profileRes.data ?? null;
-      const roleText = roleRes.data as AppRole ?? null;
-      setProfile(profileData);
-      setRole(roleText);
 
-      // Se não veio role mas usuário existe, tentar novamente (até 3x)
-      if (!roleText && attempt < 3) {
-        setTimeout(() => fetchProfileAndRole(userId, attempt + 1), 1500);
+      if (profileRes.status === "fulfilled") {
+        setProfile((profileRes.value as any).data ?? null);
       }
-    } catch (err) {
-      console.error("Failed to fetch profile/role:", err);
-      // Não reseta role/profile em caso de erro de rede — mantém o estado anterior
-      if (attempt < 3) {
-        setTimeout(() => fetchProfileAndRole(userId, attempt + 1), 1500);
+      if (roleRes.status === "fulfilled") {
+        setRole(((roleRes.value as any).data as AppRole) ?? null);
       }
+    } catch {
+      // silencioso — mantém estado anterior
     }
   }, []);
 
@@ -61,57 +53,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, fetchProfileAndRole]);
 
   useEffect(() => {
-    let settled = false;
+    // Timeout absoluto: nunca fica em loading mais de 4s
+    const hardTimeout = setTimeout(() => setLoading(false), 4000);
 
-    const settle = () => {
-      if (!settled) {
-        settled = true;
-        setLoading(false);
-      }
-    };
-
-    // Timeout: if auth check takes too long, stop loading
-    const timeout = setTimeout(settle, AUTH_TIMEOUT);
-
-    // Listen for auth changes FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
 
         if (currentUser) {
-          // Use setTimeout to avoid blocking the auth state change callback
-          setTimeout(async () => {
-            await fetchProfileAndRole(currentUser.id);
-            settle();
-          }, 0);
+          fetchProfileAndRole(currentUser.id).finally(() => {
+            setLoading(false);
+            clearTimeout(hardTimeout);
+          });
         } else {
           setProfile(null);
           setRole(null);
-          settle();
+          setLoading(false);
+          clearTimeout(hardTimeout);
         }
       }
     );
 
-    // Then trigger session check
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error("getSession error:", error);
-        setUser(null);
-        settle();
-        return;
-      }
-      // If no session and onAuthStateChange hasn't fired yet
+    // Força o disparo imediato verificando a sessão atual
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
+        // Sem sessão — para de carregar imediatamente
         setUser(null);
-        settle();
+        setLoading(false);
+        clearTimeout(hardTimeout);
       }
+      // Com sessão: onAuthStateChange vai disparar e resolver o loading
     }).catch(() => {
-      settle();
+      setLoading(false);
+      clearTimeout(hardTimeout);
     });
 
     return () => {
-      clearTimeout(timeout);
+      clearTimeout(hardTimeout);
       subscription.unsubscribe();
     };
   }, [fetchProfileAndRole]);

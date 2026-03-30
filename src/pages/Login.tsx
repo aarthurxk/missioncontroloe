@@ -14,24 +14,32 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Check if setup is needed (non-blocking — form shows immediately)
-  const [setupChecked, setSetupChecked] = useState(false);
+  // Verificar se precisa de setup — com timeout para não bloquear
   useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+
     (async () => {
       try {
         const { data } = await supabase.rpc("has_any_users") as any;
+        // Só redireciona para setup se explicitamente retornar false (boolean)
         if (data === false) {
           navigate("/setup", { replace: true });
-          return;
         }
       } catch {
-        // If RPC fails, just show login
+        // Falha silenciosa — mostra login normalmente
+      } finally {
+        clearTimeout(timeout);
       }
-      setSetupChecked(true);
     })();
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
   }, [navigate]);
 
-  // Redirect if already logged in
+  // Redirecionar se já está logado
   useEffect(() => {
     if (!authLoading && user) {
       navigate("/", { replace: true });
@@ -53,7 +61,7 @@ const Login = () => {
     }
   };
 
-  // ALWAYS render the login form — never block on auth loading
+  // Formulário sempre renderiza — nunca bloqueia
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
@@ -76,6 +84,7 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="seu@email.com"
               required
+              autoComplete="email"
               className="bg-card border-border"
             />
           </div>
@@ -88,6 +97,7 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              autoComplete="current-password"
               className="bg-card border-border"
             />
           </div>
@@ -98,7 +108,7 @@ const Login = () => {
             </div>
           )}
 
-          <Button type="submit" className="w-full gap-2" disabled={loading}>
+          <Button type="submit" className="w-full gap-2" disabled={loading || authLoading}>
             <LogIn className="h-4 w-4" />
             {loading ? "Entrando…" : "Entrar"}
           </Button>

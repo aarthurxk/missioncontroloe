@@ -68,6 +68,27 @@ export type Database = {
         }
         Relationships: []
       }
+      bridge_status: {
+        Row: {
+          host: string | null
+          id: string
+          last_seen: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          host?: string | null
+          id?: string
+          last_seen?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          host?: string | null
+          id?: string
+          last_seen?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       executions: {
         Row: {
           duration_seconds: number | null

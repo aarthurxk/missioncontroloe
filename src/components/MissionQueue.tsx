@@ -254,11 +254,24 @@ function Column({
 
 export function MissionQueue({ executions }: MissionQueueProps) {
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const running = executions.filter((e) => e.status === "running" || e.status === "cancelling");
   const completedToday = executions.filter(
-    (e) => e.status !== "running" && e.status !== "cancelling" && isToday(new Date(e.started_at))
+    (e) => e.status !== "running" && e.status !== "cancelling" && e.status !== "pending" && isToday(new Date(e.started_at))
   );
   const pending = executions.filter((e) => e.status === "pending");
+
+  const clearByIds = async (items: ExecWithRobot[], label: string) => {
+    const ids = items.map((e) => e.id);
+    if (ids.length === 0) return;
+    const { error } = await supabase.from("executions").delete().in("id", ids);
+    if (error) {
+      toast.error("Erro ao deletar execuções");
+    } else {
+      toast.success(`${ids.length} execuç${ids.length === 1 ? "ão" : "ões"} removida${ids.length === 1 ? "" : "s"}`);
+      queryClient.invalidateQueries({ queryKey: ["executions"] });
+    }
+  };
 
   if (isMobile) {
     const feed = [...running, ...pending, ...completedToday];
@@ -266,6 +279,30 @@ export function MissionQueue({ executions }: MissionQueueProps) {
       <ScrollArea className="h-full">
         {feed.length > 0 ? (
           <div className="space-y-2 p-3">
+            {feed.length > 0 && (
+              <div className="flex justify-end">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-destructive">
+                      <Trash2 className="h-3 w-3" />
+                      Limpar tudo
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Limpar todas as execuções?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja deletar {feed.length} execuç{feed.length === 1 ? "ão" : "ões"}?
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => clearByIds(feed, "todas")}>Deletar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
             {feed.map((e) => (
               <ExecutionCard key={e.id} exec={e} />
             ))}
@@ -291,7 +328,7 @@ export function MissionQueue({ executions }: MissionQueueProps) {
         </h2>
       </div>
       <div className="grid flex-1 min-h-0 grid-cols-3 divide-x overflow-hidden">
-        <Column title="Pendentes" count={pending.length}>
+        <Column title="Pendentes" count={pending.length} onClear={() => clearByIds(pending, "pendentes")}>
           {pending.map((e) => (
             <ExecutionCard key={e.id} exec={e} />
           ))}
@@ -303,7 +340,7 @@ export function MissionQueue({ executions }: MissionQueueProps) {
             </p>
           )}
         </Column>
-        <Column title="In Progress" count={running.length}>
+        <Column title="In Progress" count={running.length} onClear={() => clearByIds(running, "in progress")}>
           {running.map((e) => (
             <ExecutionCard key={e.id} exec={e} />
           ))}
@@ -311,7 +348,7 @@ export function MissionQueue({ executions }: MissionQueueProps) {
             <p className="py-8 text-center text-xs text-muted-foreground">Nenhuma execução ativa</p>
           )}
         </Column>
-        <Column title="Concluídas Hoje" count={completedToday.length}>
+        <Column title="Concluídas Hoje" count={completedToday.length} onClear={() => clearByIds(completedToday, "concluídas")}>
           {completedToday.map((e) => (
             <ExecutionCard key={e.id} exec={e} />
           ))}

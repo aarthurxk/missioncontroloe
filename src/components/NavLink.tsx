@@ -16,14 +16,17 @@ export function NavLink({ to, children, icon }: NavLinkProps) {
     <Link
       to={to}
       className={cn(
-        "flex items-center gap-1.5 rounded-md px-2 md:px-3 py-1.5 text-sm font-medium transition-colors",
+        "relative flex items-center gap-1.5 rounded-md px-2 md:px-3 py-1.5 text-sm font-medium transition-colors cursor-pointer",
         isActive
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+          ? "text-primary bg-primary/8"
+          : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
       )}
     >
       {icon}
       <span className="hidden md:inline">{children}</span>
+      {isActive && (
+        <span className="absolute bottom-0 left-2 right-2 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+      )}
     </Link>
   );
 }

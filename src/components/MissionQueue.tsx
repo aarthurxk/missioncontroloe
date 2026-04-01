@@ -2,7 +2,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { StatusBadge } from "./StatusBadge";
 import { Button } from "@/components/ui/button";
 import { LiveTerminal } from "./LiveTerminal";
-import { AlertTriangle, ClipboardCopy, Terminal, Square, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, ClipboardCopy, Terminal, Square, Loader2, Trash2, ChevronDown } from "lucide-react";
 import type { Execution, Robot } from "@/lib/types";
 import { format, isToday } from "date-fns";
 import { useEffect, useState } from "react";
@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +43,7 @@ function RunningTimer({ startedAt }: { startedAt: string }) {
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
   return (
-    <span className="font-mono text-xs text-primary tabular-nums">
+    <span className="font-mono text-[10px] text-primary tabular-nums">
       {mins}:{secs.toString().padStart(2, "0")}
     </span>
   );
@@ -55,6 +56,7 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
 
   const isRunning = exec.status === "running";
   const isCancelling = exec.status === "cancelling";
+  const isError = exec.status === "error";
 
   const handleCopyError = async () => {
     await copyErrorToClipboard({
@@ -86,98 +88,111 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card p-3 transition-colors overflow-hidden",
+        "rounded-lg border bg-card overflow-hidden transition-colors",
         isRunning && "border-primary/30 bg-primary/5",
-        isCancelling && "border-yellow-500/30 bg-yellow-500/5"
+        isCancelling && "border-warning/30 bg-warning/5"
       )}
     >
-      {/* Card header */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-base shrink-0">{exec.robots?.icon ?? "🤖"}</span>
-        <span className="text-sm font-medium truncate flex-1 min-w-0">{exec.robots?.name}</span>
-        <StatusBadge status={exec.status} />
-      </div>
+      {/* Single compact row */}
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-w-0">
+        <span className="text-sm shrink-0">{exec.robots?.icon ?? "🤖"}</span>
 
-      {/* Timing row */}
-      <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground font-mono">
-        <span>{format(new Date(exec.started_at), "HH:mm")}</span>
-        {isRunning ? (
-          <RunningTimer startedAt={exec.started_at} />
-        ) : exec.duration_seconds ? (
-          <span>
-            {Math.floor(exec.duration_seconds / 60)}m {exec.duration_seconds % 60}s
+        <span className="text-xs font-medium truncate flex-1 min-w-0">{exec.robots?.name}</span>
+
+        {/* Time / duration */}
+        <span className="font-mono text-[10px] text-muted-foreground shrink-0 hidden sm:inline">
+          {format(new Date(exec.started_at), "HH:mm")}
+        </span>
+        {isRunning && <RunningTimer startedAt={exec.started_at} />}
+        {!isRunning && !isCancelling && exec.duration_seconds ? (
+          <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+            {Math.floor(exec.duration_seconds / 60)}m{exec.duration_seconds % 60}s
           </span>
         ) : null}
+
+        <StatusBadge status={exec.status} />
+
+        {/* Icon action buttons */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showTerminal ? "default" : "ghost"}
+                size="icon"
+                className="h-6 w-6 cursor-pointer"
+                onClick={() => setShowTerminal((v) => !v)}
+              >
+                {showTerminal ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <Terminal className="h-3 w-3" />
+                )}
+                {isRunning && !showTerminal && (
+                  <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="text-xs font-mono">
+              {showTerminal ? "Fechar terminal" : "Ver terminal"}
+            </TooltipContent>
+          </Tooltip>
+
+          {(isRunning || isCancelling) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                  disabled={isCancelling || stopping}
+                  onClick={handleStop}
+                >
+                  {isCancelling || stopping ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Square className="h-3 w-3" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs font-mono">
+                {isCancelling ? "Parando…" : "Parar execução"}
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {isError && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                  onClick={handleCopyError}
+                >
+                  <ClipboardCopy className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-xs font-mono">
+                Copiar erro
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
-      {/* Log preview (non-running) */}
-      {!isRunning && !isCancelling && exec.log_output && (
-        <p className="mt-2 text-[11px] text-muted-foreground font-mono line-clamp-2 leading-relaxed break-all whitespace-pre-wrap">
-          {exec.log_output}
-        </p>
-      )}
-
-      {/* Error */}
-      {exec.error_message && (
-        <div className="mt-2 flex items-start gap-1.5 rounded bg-destructive/10 p-2 overflow-hidden">
-          <AlertTriangle className="h-3 w-3 text-destructive mt-0.5 shrink-0" />
-          <p className="text-[11px] text-destructive font-mono line-clamp-2 flex-1 break-all min-w-0">
+      {/* Error preview (collapsed, single line) */}
+      {isError && exec.error_message && !showTerminal && (
+        <div className="flex items-center gap-1.5 px-2.5 pb-1.5 overflow-hidden">
+          <AlertTriangle className="h-2.5 w-2.5 text-destructive shrink-0" />
+          <p className="text-[10px] text-destructive font-mono truncate min-w-0">
             {exec.error_message}
           </p>
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="mt-2 flex gap-2 flex-wrap">
-        {/* Terminal toggle */}
-        <Button
-          variant={showTerminal ? "default" : "outline"}
-          size="sm"
-          className="gap-1.5 h-7 text-xs flex-1"
-          onClick={() => setShowTerminal((v) => !v)}
-        >
-          <Terminal className="h-3 w-3" />
-          {showTerminal ? "Fechar" : "Terminal"}
-          {isRunning && !showTerminal && (
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse ml-0.5" />
-          )}
-        </Button>
-
-        {/* Stop button (running only) */}
-        {(isRunning || isCancelling) && (
-          <Button
-            variant="destructive"
-            size="sm"
-            className="gap-1.5 h-7 text-xs"
-            disabled={isCancelling || stopping}
-            onClick={handleStop}
-          >
-            {isCancelling || stopping ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Square className="h-3 w-3" />
-            )}
-            {isCancelling || stopping ? "Parando…" : "Parar"}
-          </Button>
-        )}
-
-        {/* Copy error */}
-        {exec.status === "error" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 h-7 text-xs"
-            onClick={handleCopyError}
-          >
-            <ClipboardCopy className="h-3 w-3" />
-            Copiar erro
-          </Button>
-        )}
-      </div>
-
-      {/* Inline live terminal */}
+      {/* Expandable terminal */}
       {showTerminal && (
-        <div className="mt-3">
+        <div className="border-t border-border">
           <LiveTerminal
             executionId={exec.id}
             initialLog={exec.log_output}
@@ -214,18 +229,18 @@ function Column({
 
   return (
     <div className="flex flex-col min-w-0 min-h-0 h-full overflow-hidden">
-      <div className="flex items-center gap-2 border-b p-3 md:p-4">
-        <h3 className="text-xs md:text-sm font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
+        <h3 className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground flex-1">
           {title}
         </h3>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
           {count}
         </span>
         {onClear && count > 0 && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive">
-                <Trash2 className="h-3.5 w-3.5" />
+              <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive cursor-pointer">
+                <Trash2 className="h-3 w-3" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -246,7 +261,7 @@ function Column({
         )}
       </div>
       <ScrollArea className="flex-1 min-h-0">
-        <div className="space-y-2 p-2 md:p-3">{children}</div>
+        <div className="space-y-1 p-2">{children}</div>
       </ScrollArea>
     </div>
   );
@@ -257,7 +272,11 @@ export function MissionQueue({ executions }: MissionQueueProps) {
   const queryClient = useQueryClient();
   const running = executions.filter((e) => e.status === "running" || e.status === "cancelling");
   const completedToday = executions.filter(
-    (e) => e.status !== "running" && e.status !== "cancelling" && e.status !== "pending" && isToday(new Date(e.started_at))
+    (e) =>
+      e.status !== "running" &&
+      e.status !== "cancelling" &&
+      e.status !== "pending" &&
+      isToday(new Date(e.started_at))
   );
   const pending = executions.filter((e) => e.status === "pending");
 
@@ -268,7 +287,9 @@ export function MissionQueue({ executions }: MissionQueueProps) {
     if (error) {
       toast.error("Erro ao deletar execuções");
     } else {
-      toast.success(`${ids.length} execuç${ids.length === 1 ? "ão" : "ões"} removida${ids.length === 1 ? "" : "s"}`);
+      toast.success(
+        `${ids.length} execuç${ids.length === 1 ? "ão" : "ões"} removida${ids.length === 1 ? "" : "s"}`
+      );
       queryClient.invalidateQueries({ queryKey: ["executions"] });
     }
   };
@@ -278,12 +299,12 @@ export function MissionQueue({ executions }: MissionQueueProps) {
     return (
       <ScrollArea className="h-full">
         {feed.length > 0 ? (
-          <div className="space-y-2 p-3">
+          <div className="space-y-1.5 p-2">
             {feed.length > 0 && (
               <div className="flex justify-end">
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-destructive">
+                    <Button variant="ghost" size="sm" className="gap-1.5 h-7 text-xs text-muted-foreground hover:text-destructive cursor-pointer">
                       <Trash2 className="h-3 w-3" />
                       Limpar tudo
                     </Button>
@@ -309,7 +330,6 @@ export function MissionQueue({ executions }: MissionQueueProps) {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <span className="text-3xl mb-3">🤖</span>
             <p className="text-sm font-medium text-muted-foreground">Nenhuma atividade recente</p>
             <p className="text-xs text-muted-foreground/70 mt-1">
               As execuções dos seus robôs aparecerão aqui.
@@ -322,21 +342,19 @@ export function MissionQueue({ executions }: MissionQueueProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b p-3 md:p-4">
-        <h2 className="text-xs md:text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="border-b border-border px-3 py-2.5">
+        <h2 className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
           Mission Queue
         </h2>
       </div>
-      <div className="grid flex-1 min-h-0 grid-cols-3 divide-x overflow-hidden">
+      <div className="grid flex-1 min-h-0 grid-cols-3 divide-x divide-border overflow-hidden">
         <Column title="Pendentes" count={pending.length} onClear={() => clearByIds(pending, "pendentes")}>
           {pending.map((e) => (
             <ExecutionCard key={e.id} exec={e} />
           ))}
           {pending.length === 0 && (
-            <p className="py-8 text-center text-xs text-muted-foreground">
-              Nenhuma missão pendente.
-              <br />
-              Conecte seus robôs via agent_bridge.
+            <p className="py-8 text-center text-[11px] text-muted-foreground font-mono">
+              Nenhuma missão pendente
             </p>
           )}
         </Column>
@@ -345,7 +363,9 @@ export function MissionQueue({ executions }: MissionQueueProps) {
             <ExecutionCard key={e.id} exec={e} />
           ))}
           {running.length === 0 && (
-            <p className="py-8 text-center text-xs text-muted-foreground">Nenhuma execução ativa</p>
+            <p className="py-8 text-center text-[11px] text-muted-foreground font-mono">
+              Nenhuma execução ativa
+            </p>
           )}
         </Column>
         <Column title="Concluídas Hoje" count={completedToday.length} onClear={() => clearByIds(completedToday, "concluídas")}>
@@ -353,10 +373,8 @@ export function MissionQueue({ executions }: MissionQueueProps) {
             <ExecutionCard key={e.id} exec={e} />
           ))}
           {completedToday.length === 0 && (
-            <p className="py-8 text-center text-xs text-muted-foreground">
-              Nenhuma execução registrada ainda.
-              <br />
-              Conecte seus robôs via agent_bridge.
+            <p className="py-8 text-center text-[11px] text-muted-foreground font-mono">
+              Nenhuma execução hoje
             </p>
           )}
         </Column>

@@ -1,24 +1,23 @@
 
 
-## Migração: Abrir RLS nas tabelas executions e robots
+## Corrigir overflow do texto de erro nos cards do Mission Queue
 
-### O que será feito
-Criar uma migração SQL que adiciona políticas `FOR ALL USING (true) WITH CHECK (true)` para o role `public` nas tabelas `executions` e `robots`, permitindo acesso irrestrito (incluindo o agent_bridge via anon key).
+### Problema
+A mensagem de erro nos cards de execução concluída está saindo da coluna porque o card não está respeitando os limites de largura da coluna do grid.
 
-### Arquivo a criar
+### Mudanças
 
-**`supabase/migrations/20260331000000_fix_rls_executions_robots.sql`**
+**Arquivo: `src/components/MissionQueue.tsx`**
 
-```sql
-DROP POLICY IF EXISTS "Allow all access to executions" ON public.executions;
-DROP POLICY IF EXISTS "Allow all access to robots" ON public.robots;
+1. **ExecutionCard** (linha 89-94): Adicionar `min-w-0` ao container raiz do card para que ele respeite o limite de largura do parent (grid column):
+   ```
+   "rounded-lg border bg-card overflow-hidden transition-colors min-w-0"
+   ```
 
-CREATE POLICY "Allow all access to executions"
-  ON public.executions FOR ALL USING (true) WITH CHECK (true);
+2. **Linha do conteúdo principal** (linha 97): Garantir que a row inteira também tem `overflow-hidden`:
+   ```
+   "flex items-center gap-1.5 px-2.5 py-1.5 min-w-0 overflow-hidden"
+   ```
 
-CREATE POLICY "Allow all access to robots"
-  ON public.robots FOR ALL USING (true) WITH CHECK (true);
-```
-
-Nenhum outro arquivo será alterado. As políticas existentes de admin continuam no lugar — esta nova política permissiva se soma a elas.
+Essas duas mudanças garantem que o `truncate` na mensagem de erro e no nome do robô funcionem corretamente dentro das colunas do grid de 3 colunas.
 

@@ -9,7 +9,7 @@ import { Zap, LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, Cal
 
 interface HeaderProps {
   runningCount: number;
-  isConnected?: boolean; // mantido para compatibilidade, não usado mais
+  isConnected?: boolean;
 }
 
 function formatAgo(seconds: number): string {
@@ -29,13 +29,22 @@ export function Header({ runningCount }: HeaderProps) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 bg-card/90 backdrop-blur-md">
+      {/* Top gradient line */}
+      <div className="h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
       <div className="flex h-12 md:h-14 items-center justify-between px-3 md:px-6">
         <div className="flex items-center gap-3 md:gap-6">
+          {/* Logo */}
           <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
-            <h1 className="hidden md:block text-lg font-bold tracking-tight">MISSION CONTROL</h1>
+            <div className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/30 bg-primary/10">
+              <Zap className="h-4 w-4 text-primary" />
+            </div>
+            <h1 className="hidden md:block font-mono text-sm font-bold tracking-widest text-foreground">
+              MISSION CONTROL
+            </h1>
           </div>
+
           <nav className="flex items-center gap-0.5 md:gap-1">
             <NavLink to="/" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</NavLink>
             <NavLink to="/logs" icon={<ScrollText className="h-4 w-4" />}>Logs</NavLink>
@@ -50,7 +59,11 @@ export function Header({ runningCount }: HeaderProps) {
 
         <div className="flex items-center gap-2 md:gap-4">
           {runningCount > 0 && (
-            <Badge className="bg-primary/20 text-primary border-primary/30 animate-pulse text-[10px] md:text-xs">
+            <Badge className="bg-primary/15 text-primary border-primary/25 text-[10px] md:text-[11px] font-mono gap-1.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+              </span>
               {runningCount} rodando
             </Badge>
           )}
@@ -59,19 +72,19 @@ export function Header({ runningCount }: HeaderProps) {
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="flex items-center gap-1.5 cursor-default">
-                <Bot className={`h-3.5 w-3.5 ${bridge.isOnline ? "text-green-400" : "text-muted-foreground"}`} />
+                <Bot className={`h-3.5 w-3.5 ${bridge.isOnline ? "text-success" : "text-muted-foreground"}`} />
                 <div className="flex items-center gap-1">
-                  <span className={`h-2 w-2 rounded-full ${bridge.isOnline ? "bg-green-400 animate-pulse" : "bg-muted-foreground"}`} />
-                  <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline">
+                  <span className={`h-1.5 w-1.5 rounded-full ${bridge.isOnline ? "bg-success animate-pulse" : "bg-muted-foreground"}`} />
+                  <span className="text-[10px] md:text-xs text-muted-foreground hidden sm:inline font-mono">
                     {bridge.isOnline ? "Bridge ON" : "Bridge OFF"}
                   </span>
                 </div>
               </div>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs space-y-1">
+            <TooltipContent side="bottom" className="text-xs space-y-1 font-mono">
               {bridge.isOnline ? (
                 <>
-                  <p className="font-semibold text-green-400">● Agent Bridge online</p>
+                  <p className="font-semibold text-success">● Agent Bridge online</p>
                   {bridge.host && <p>Host: <span className="font-mono">{bridge.host}</span></p>}
                   {bridge.secondsAgo !== null && <p>Último sinal: {formatAgo(bridge.secondsAgo)}</p>}
                 </>
@@ -104,15 +117,18 @@ export function Header({ runningCount }: HeaderProps) {
                 <p className="text-xs font-medium leading-tight">
                   {profile?.name ?? user.email?.split("@")[0] ?? "Usuário"}
                 </p>
-                <p className="text-[10px] text-muted-foreground uppercase">{role ?? "—"}</p>
+                <p className="text-[10px] text-muted-foreground uppercase font-mono">{role ?? "—"}</p>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={signOut} title="Sair">
+              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={signOut} title="Sair">
                 <LogOut className="h-4 w-4" />
               </Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Bottom border */}
+      <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
     </header>
   );
 }

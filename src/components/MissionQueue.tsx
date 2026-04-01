@@ -88,7 +88,7 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card overflow-hidden transition-colors",
+        "rounded-lg border bg-card overflow-hidden transition-colors min-w-0",
         isRunning && "border-primary/30 bg-primary/5",
         isCancelling && "border-warning/30 bg-warning/5"
       )}

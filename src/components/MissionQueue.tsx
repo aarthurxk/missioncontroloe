@@ -182,9 +182,9 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
 
       {/* Error preview (collapsed, single line) */}
       {isError && exec.error_message && !showTerminal && (
-        <div className="flex items-center gap-1.5 px-2.5 pb-1.5 overflow-hidden">
-          <AlertTriangle className="h-2.5 w-2.5 text-destructive shrink-0" />
-          <p className="text-[10px] text-destructive font-mono truncate min-w-0">
+        <div className="flex items-start gap-1.5 px-2.5 pb-1.5">
+          <AlertTriangle className="h-2.5 w-2.5 text-destructive shrink-0 mt-0.5" />
+          <p className="text-[10px] text-destructive font-mono min-w-0 whitespace-normal break-words" style={{ overflowWrap: "anywhere" }}>
             {exec.error_message}
           </p>
         </div>

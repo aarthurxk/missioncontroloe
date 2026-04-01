@@ -94,7 +94,7 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
       )}
     >
       {/* Single compact row */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-w-0">
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-w-0 overflow-hidden">
         <span className="text-sm shrink-0">{exec.robots?.icon ?? "🤖"}</span>
 
         <span className="text-xs font-medium truncate flex-1 min-w-0">{exec.robots?.name}</span>

@@ -261,7 +261,7 @@ function Column({
         )}
       </div>
       <ScrollArea className="flex-1 min-h-0">
-        <div className="space-y-1 p-2">{children}</div>
+        <div className="space-y-1 p-2 pb-6">{children}</div>
       </ScrollArea>
     </div>
   );
@@ -299,7 +299,7 @@ export function MissionQueue({ executions }: MissionQueueProps) {
     return (
       <ScrollArea className="h-full">
         {feed.length > 0 ? (
-          <div className="space-y-1.5 p-2">
+          <div className="space-y-1.5 p-2 pb-6">
             {feed.length > 0 && (
               <div className="flex justify-end">
                 <AlertDialog>

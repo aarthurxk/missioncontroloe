@@ -88,13 +88,13 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card overflow-hidden transition-colors",
+        "rounded-lg border bg-card overflow-hidden transition-colors min-w-0",
         isRunning && "border-primary/30 bg-primary/5",
         isCancelling && "border-warning/30 bg-warning/5"
       )}
     >
       {/* Single compact row */}
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-w-0">
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-w-0 overflow-hidden">
         <span className="text-sm shrink-0">{exec.robots?.icon ?? "🤖"}</span>
 
         <span className="text-xs font-medium truncate flex-1 min-w-0">{exec.robots?.name}</span>

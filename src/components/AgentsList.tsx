@@ -11,6 +11,7 @@ import { Play, Square, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AgentsListProps {
   robots: Robot[];
@@ -95,7 +96,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
         </h2>
       </div>
       <ScrollArea className="flex-1 min-h-0">
-        <div className="space-y-0.5 p-2">
+        <div className="space-y-0.5 p-1.5">
           {robots.map((robot) => {
             const latest = getLatestExecution(robot.id);
             const status = getRobotStatus(robot.id);
@@ -108,69 +109,82 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                 key={robot.id}
                 onClick={() => onSelect(robot.id)}
                 className={cn(
-                  "w-full rounded-lg p-3 text-left transition-all cursor-pointer relative",
+                  "w-full rounded-lg px-2.5 py-2 text-left transition-all cursor-pointer relative flex items-center gap-2 group",
                   isSelected
                     ? "bg-primary/8 border border-primary/20"
                     : "hover:bg-accent/50 border border-transparent"
                 )}
               >
-                {/* Selected left accent bar */}
+                {/* Selected left accent */}
                 {isSelected && (
-                  <div className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary" />
+                  <div className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />
                 )}
 
-                <div className="flex items-start gap-2.5">
-                  <span className="text-base mt-0.5 shrink-0">{robot.icon ?? "🤖"}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-sm font-medium truncate">{robot.name}</span>
-                      <CategoryBadge category={robot.category} />
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                      <StatusBadge status={status} />
-                      {latest && (
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(latest.started_at), {
-                            addSuffix: true,
-                            locale: ptBR,
-                          })}
-                        </span>
-                      )}
-                    </div>
+                {/* Robot icon */}
+                <span className="text-sm shrink-0">{robot.icon ?? "🤖"}</span>
+
+                {/* Name + status */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-xs font-medium truncate">{robot.name}</span>
+                    <CategoryBadge category={robot.category} />
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <StatusBadge status={status} />
+                    {latest && (
+                      <span className="font-mono text-[9px] text-muted-foreground">
+                        {formatDistanceToNow(new Date(latest.started_at), {
+                          addSuffix: true,
+                          locale: ptBR,
+                        })}
+                      </span>
+                    )}
                   </div>
                 </div>
 
+                {/* Inline action button */}
                 {isRunning || isCancelling ? (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="mt-2.5 w-full gap-1.5 h-7 text-[11px] font-mono cursor-pointer"
-                    disabled={isCancelling || stopping[robot.id]}
-                    onClick={(e) => handleStop(e, robot.id)}
-                  >
-                    {isCancelling || stopping[robot.id] ? (
-                      <>
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        PARANDO…
-                      </>
-                    ) : (
-                      <>
-                        <Square className="h-3 w-3" />
-                        PARAR
-                      </>
-                    )}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                        disabled={isCancelling || stopping[robot.id]}
+                        onClick={(e) => handleStop(e, robot.id)}
+                      >
+                        {isCancelling || stopping[robot.id] ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs font-mono">
+                      {isCancelling ? "Parando…" : "Parar execução"}
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2.5 w-full gap-1.5 h-7 text-[11px] font-mono cursor-pointer hover:border-primary/40 hover:text-primary"
-                    disabled={cooldowns[robot.id]}
-                    onClick={(e) => handleRunNow(e, robot.id)}
-                  >
-                    <Play className="h-3 w-3" />
-                    {cooldowns[robot.id] ? "ENVIADO…" : "EXECUTAR"}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                        disabled={cooldowns[robot.id]}
+                        onClick={(e) => handleRunNow(e, robot.id)}
+                      >
+                        {cooldowns[robot.id] ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="text-xs font-mono">
+                      {cooldowns[robot.id] ? "Enviado…" : "Executar agora"}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </button>
             );

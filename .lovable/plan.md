@@ -1,41 +1,44 @@
 
 
-## Armazenar cron em horário de Recife (UTC-3)
+## Reconhecimento de Feriados no Agendador
 
-### Situação atual
-O sistema converte o horário local para UTC antes de salvar o cron (ex: 08:00 BRT → `0 11 * * ...`). Isso funciona, mas o cron bruto exibido no card confunde (mostra `0 11` em vez de `0 8`).
-
-A edge function `trigger-schedules` provavelmente usa o campo `next_run_at` (TIMESTAMPTZ) para decidir quando disparar, não parseia o cron diretamente. Portanto, o cron pode ficar em horário local sem problemas — basta que o `next_run_at` esteja correto em UTC.
+### Objetivo
+Adicionar uma lista de feriados nacionais, estaduais (PE) e municipais (Recife) para que o agendador:
+1. Pule feriados ao calcular `next_run_at` (não dispara execução)
+2. Mostre um aviso visual no card quando a próxima execução cairia em feriado
+3. Mostre os próximos feriados no formulário de criação/edição
 
 ### Mudanças
 
-**`src/hooks/useSchedules.ts`**
+**Novo arquivo: `src/lib/holidays.ts`**
 
-1. **`buildCronExpression()`** — remover a conversão local→UTC. Salvar o cron com a hora local diretamente (ex: 08:00 → `0 8 * * ...`).
+Criar um módulo com a lista completa de feriados para 2025-2027 (extensível), incluindo:
 
-2. **`parseCronToDisplay()`** — remover a conversão UTC→local. Ler a hora do cron diretamente como hora local.
+- **Nacionais**: Confraternização, Carnaval (seg+ter), Sexta-feira Santa, Tiradentes, Dia do Trabalho, Corpus Christi, Independência, Nossa Senhora Aparecida, Finados, Proclamação da República, Natal
+- **Estaduais (PE)**: Revolução Pernambucana (6/mar), São João (24/jun)
+- **Municipais (Recife)**: Nossa Senhora do Carmo (16/jul), emancipação e outros feriados locais
 
-3. **`cronToLocalTime()`** — remover a conversão, retornar a hora do cron diretamente.
+Feriados móveis (Carnaval, Páscoa, Corpus Christi) serão calculados programaticamente a partir da fórmula da Páscoa (algoritmo de Meeus/Jones/Butcher).
 
-4. **`getNextRunFromCron()`** — manter a lógica de calcular a próxima execução, mas agora tratar a hora do cron como horário de Recife (UTC-3) para gerar o `Date` correto em UTC. Usar offset fixo de -3h (Recife não tem horário de verão).
+Exportar:
+- `isHoliday(date: Date): { holiday: boolean; name?: string; scope?: string }`
+- `getNextHolidays(count: number): { date: Date; name: string; scope: string }[]`
 
-**Migração SQL** — reverter os crons para horário local e corrigir `next_run_at`:
+**Arquivo: `src/hooks/useSchedules.ts`**
 
-```sql
--- Cron de volta para horário local (Recife)
-UPDATE schedules SET cron_expression = '0 8 * * 2,3,4,5,6',
-  next_run_at = '2026-04-03 11:00:00+00'
-  WHERE id = 'ed46625c-fc1b-45ff-91fd-06c5301f0948';
+- Modificar `getNextRunFromCron()` para pular datas que são feriado ao calcular a próxima execução — se o candidato cai em feriado, avança para o próximo dia válido
+- Exportar uma função `getNextRunInfo()` que retorna `{ nextRun: Date; skippedHoliday?: { date: Date; name: string } }` para o UI mostrar avisos
 
-UPDATE schedules SET cron_expression = '22 9 * * 2,3,4,5,6',
-  next_run_at = '2026-04-03 12:22:00+00'
-  WHERE id = '5d87ae5d-c3ad-41d8-a38a-221a036ae853';
+**Arquivo: `src/pages/SchedulerPage.tsx`**
 
-UPDATE schedules SET cron_expression = '30 19 * * 2,3,4,5,6',
-  next_run_at = '2026-04-02 22:30:00+00'
-  WHERE id = '489693fa-e140-4db5-a083-feeb3f7db381';
-```
+- No `ScheduleCard`: se a próxima execução originalmente cairia em feriado mas foi pulada, mostrar badge/aviso amarelo: "⚠️ Feriado pulado: [nome] em [data]"
+- No `ScheduleForm`: mostrar alerta se algum dos próximos 3 dias úteis do agendamento é feriado
+- Adicionar seção colapsável "Próximos feriados" no rodapé da página com os próximos 5 feriados
 
-### Detalhe técnico
-Recife (America/Recife) é UTC-3 o ano inteiro, sem horário de verão. Então o offset é fixo: para converter hora local do cron para `next_run_at` UTC, basta somar 3 horas.
+### Detalhes técnicos
+
+- Feriados móveis calculados via algoritmo da Páscoa (puro JS, sem dependências externas)
+- Comparação por data no fuso de Recife (UTC-3), usando o offset fixo já existente
+- A lista de feriados cobre 2025-2027; para anos futuros, os feriados fixos são gerados automaticamente e os móveis são calculados
+- O `next_run_at` salvo no banco já pula feriados, então a edge function `trigger-schedules` não precisa de mudanças
 

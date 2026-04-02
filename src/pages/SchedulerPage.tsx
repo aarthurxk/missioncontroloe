@@ -463,7 +463,35 @@ const SchedulerPage = () => {
                       onDelete={() => handleDelete(s.id)}
                     />
                   ))}
-                </div>
+        {/* Próximos feriados */}
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
+              <PartyPopper className="h-4 w-4" />
+              Próximos feriados
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <Card className="border-border/50 mt-2">
+              <CardContent className="p-3 space-y-2">
+                {getNextHolidays(8).map((h, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {format(h.date, "dd/MM", { locale: ptBR })}
+                      </span>
+                      <span>{h.name}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {scopeLabel(h.scope)}
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
               );
             })}
           </div>

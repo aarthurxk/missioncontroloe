@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { useRobots } from "@/hooks/useRobots";
 import { useExecutions } from "@/hooks/useExecutions";
-import { useSchedules, parseCronToDisplay, getNextRunFromCron, buildCronExpression, cronToLocalTime } from "@/hooks/useSchedules";
+import { useSchedules, parseCronToDisplay, getNextRunFromCron, getNextRunInfo, buildCronExpression, cronToLocalTime } from "@/hooks/useSchedules";
 import type { ScheduleWithRobot } from "@/hooks/useSchedules";
+import { getNextHolidays, isHoliday, scopeLabel } from "@/lib/holidays";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,8 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, CalendarClock, Clock, Calendar } from "lucide-react";
+import { Plus, Pencil, Trash2, CalendarClock, Clock, Calendar, AlertTriangle, PartyPopper } from "lucide-react";
 import { toast } from "sonner";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -65,7 +67,8 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
   };
 
   const cronExpression = buildCronExpression(selectedDays, time);
-  const nextRun = getNextRunFromCron(cronExpression);
+  const runInfo = getNextRunInfo(cronExpression);
+  const nextRun = runInfo.nextRun;
   const displayLabel = parseCronToDisplay(cronExpression);
 
   const allDays = selectedDays.length === 7;
@@ -209,6 +212,13 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
               </span>
             </p>
           )}
+          {runInfo.skippedHoliday && (
+            <p className="text-xs flex items-center gap-1.5 text-yellow-500">
+              <AlertTriangle className="h-3 w-3" />
+              Feriado pulado: {runInfo.skippedHoliday.name} em{" "}
+              {format(runInfo.skippedHoliday.date, "dd/MM (EEEE)", { locale: ptBR })}
+            </p>
+          )}
           <p className="font-mono text-[10px] text-muted-foreground">cron: {cronExpression}</p>
         </div>
       )}
@@ -240,9 +250,10 @@ function ScheduleCard({
     setToggling(false);
   };
 
+  const runInfo = getNextRunInfo(schedule.cron_expression);
   const nextRun = schedule.next_run_at
     ? new Date(schedule.next_run_at)
-    : getNextRunFromCron(schedule.cron_expression);
+    : runInfo.nextRun;
 
   const isOverdue = nextRun && nextRun < new Date();
 
@@ -282,6 +293,13 @@ function ScheduleCard({
                 <span className="font-mono">
                   {format(nextRun, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}
                 </span>
+              </p>
+            )}
+
+            {runInfo.skippedHoliday && schedule.is_active && (
+              <p className="mt-1 text-xs flex items-center gap-1 text-yellow-500">
+                <AlertTriangle className="h-3 w-3" />
+                Feriado pulado: {runInfo.skippedHoliday.name} ({format(runInfo.skippedHoliday.date, "dd/MM", { locale: ptBR })})
               </p>
             )}
 
@@ -445,7 +463,35 @@ const SchedulerPage = () => {
                       onDelete={() => handleDelete(s.id)}
                     />
                   ))}
-                </div>
+        {/* Próximos feriados */}
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground">
+              <PartyPopper className="h-4 w-4" />
+              Próximos feriados
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <Card className="border-border/50 mt-2">
+              <CardContent className="p-3 space-y-2">
+                {getNextHolidays(8).map((h, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {format(h.date, "dd/MM", { locale: ptBR })}
+                      </span>
+                      <span>{h.name}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {scopeLabel(h.scope)}
+                    </Badge>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
+      </div>
               );
             })}
           </div>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { useRobots } from "@/hooks/useRobots";
 import { useExecutions } from "@/hooks/useExecutions";
-import { useSchedules, parseCronToDisplay, getNextRunFromCron, buildCronExpression } from "@/hooks/useSchedules";
+import { useSchedules, parseCronToDisplay, getNextRunFromCron, buildCronExpression, cronToLocalTime } from "@/hooks/useSchedules";
 import type { ScheduleWithRobot } from "@/hooks/useSchedules";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";

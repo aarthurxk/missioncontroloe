@@ -89,13 +89,14 @@ export function getNextRunFromCron(cron: string | null): Date | null {
   return null;
 }
 
-// Build cron expression from days + time
+// Build cron expression from days + LOCAL time (converts to UTC for storage)
 export function buildCronExpression(daysOfWeek: number[], time: string): string {
   const [h, m] = time.split(":").map(Number);
-  const hour = isNaN(h) ? 9 : h;
-  const minute = isNaN(m) ? 0 : m;
+  const localHour = isNaN(h) ? 9 : h;
+  const localMinute = isNaN(m) ? 0 : m;
+  const { hour: utcHour, minute: utcMinute } = localToUtc(localHour, localMinute);
   const dow = daysOfWeek.length === 0 || daysOfWeek.length === 7
     ? "*"
     : daysOfWeek.sort((a, b) => a - b).join(",");
-  return `${minute} ${hour} * * ${dow}`;
+  return `${utcMinute} ${utcHour} * * ${dow}`;
 }

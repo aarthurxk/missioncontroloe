@@ -1,36 +1,41 @@
 
 
-## Problema: Horário do agendamento em UTC vs horário do Brasil
+## Armazenar cron em horário de Recife (UTC-3)
 
-O sistema salva o cron com a hora que você digita (ex: `08:00`), mas o mecanismo que dispara as execuções interpreta essa hora como **UTC**. Resultado: 08:00 UTC = 05:00 no horário de Brasília.
+### Situação atual
+O sistema converte o horário local para UTC antes de salvar o cron (ex: 08:00 BRT → `0 11 * * ...`). Isso funciona, mas o cron bruto exibido no card confunde (mostra `0 11` em vez de `0 8`).
 
-### Solução
-
-Converter a hora local (BRT, UTC-3) para UTC antes de salvar o cron expression, e converter de volta para horário local ao exibir.
+A edge function `trigger-schedules` provavelmente usa o campo `next_run_at` (TIMESTAMPTZ) para decidir quando disparar, não parseia o cron diretamente. Portanto, o cron pode ficar em horário local sem problemas — basta que o `next_run_at` esteja correto em UTC.
 
 ### Mudanças
 
 **`src/hooks/useSchedules.ts`**
 
-1. `buildCronExpression()` — receber a hora em horário local e converter para UTC antes de montar o cron:
-   - Ex: usuário digita 08:00 BRT → cron salva `0 11 * * ...` (UTC)
+1. **`buildCronExpression()`** — remover a conversão local→UTC. Salvar o cron com a hora local diretamente (ex: 08:00 → `0 8 * * ...`).
 
-2. `parseCronToDisplay()` — converter a hora UTC do cron de volta para horário local ao exibir:
-   - Ex: cron `0 11 * * ...` → exibe "08:00" para quem está em UTC-3
+2. **`parseCronToDisplay()`** — remover a conversão UTC→local. Ler a hora do cron diretamente como hora local.
 
-3. `getNextRunFromCron()` — já usa `new Date()` (local), mas precisa considerar que o cron agora está em UTC
+3. **`cronToLocalTime()`** — remover a conversão, retornar a hora do cron diretamente.
 
-**`src/pages/SchedulerPage.tsx`**
+4. **`getNextRunFromCron()`** — manter a lógica de calcular a próxima execução, mas agora tratar a hora do cron como horário de Recife (UTC-3) para gerar o `Date` correto em UTC. Usar offset fixo de -3h (Recife não tem horário de verão).
 
-4. `parsedTime()` no formulário de edição — converter a hora UTC do cron de volta para horário local para preencher o campo de hora corretamente
+**Migração SQL** — reverter os crons para horário local e corrigir `next_run_at`:
 
-### Detalhes técnicos
+```sql
+-- Cron de volta para horário local (Recife)
+UPDATE schedules SET cron_expression = '0 8 * * 2,3,4,5,6',
+  next_run_at = '2026-04-03 11:00:00+00'
+  WHERE id = 'ed46625c-fc1b-45ff-91fd-06c5301f0948';
 
-- Usar `Date` para converter: criar uma data UTC com a hora do cron e extrair `.getHours()` / `.getMinutes()` locais (e vice-versa)
-- Não mexe no banco de dados nem nas migrações
-- Os agendamentos existentes precisarão ser re-salvos pelo usuário (ou podemos fazer uma correção em lote via SQL adicionando +3h aos cron expressions existentes)
+UPDATE schedules SET cron_expression = '22 9 * * 2,3,4,5,6',
+  next_run_at = '2026-04-03 12:22:00+00'
+  WHERE id = '5d87ae5d-c3ad-41d8-a38a-221a036ae853';
 
-### Correção dos agendamentos existentes
+UPDATE schedules SET cron_expression = '30 19 * * 2,3,4,5,6',
+  next_run_at = '2026-04-02 22:30:00+00'
+  WHERE id = '489693fa-e140-4db5-a083-feeb3f7db381';
+```
 
-Opcionalmente, uma query SQL para corrigir os 3 agendamentos atuais, adicionando 3 horas à hora UTC do cron (ex: `0 8` → `0 11`, `22 9` → `22 12`, `30 19` → `30 22`).
+### Detalhe técnico
+Recife (America/Recife) é UTC-3 o ano inteiro, sem horário de verão. Então o offset é fixo: para converter hora local do cron para `next_run_at` UTC, basta somar 3 horas.
 

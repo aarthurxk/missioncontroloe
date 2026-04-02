@@ -212,6 +212,13 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
               </span>
             </p>
           )}
+          {runInfo.skippedHoliday && (
+            <p className="text-xs flex items-center gap-1.5 text-yellow-500">
+              <AlertTriangle className="h-3 w-3" />
+              Feriado pulado: {runInfo.skippedHoliday.name} em{" "}
+              {format(runInfo.skippedHoliday.date, "dd/MM (EEEE)", { locale: ptBR })}
+            </p>
+          )}
           <p className="font-mono text-[10px] text-muted-foreground">cron: {cronExpression}</p>
         </div>
       )}

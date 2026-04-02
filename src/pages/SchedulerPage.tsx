@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { useRobots } from "@/hooks/useRobots";
 import { useExecutions } from "@/hooks/useExecutions";
-import { useSchedules, parseCronToDisplay, getNextRunFromCron, buildCronExpression } from "@/hooks/useSchedules";
+import { useSchedules, parseCronToDisplay, getNextRunFromCron, buildCronExpression, cronToLocalTime } from "@/hooks/useSchedules";
 import type { ScheduleWithRobot } from "@/hooks/useSchedules";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -50,12 +50,7 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
   };
 
   const parsedTime = (): string => {
-    if (!schedule?.cron_expression) return "09:00";
-    const parts = schedule.cron_expression.trim().split(/\s+/);
-    if (parts.length < 2) return "09:00";
-    const hour = parts[1].padStart(2, "0");
-    const minute = parts[0].padStart(2, "0");
-    return `${hour}:${minute}`;
+    return cronToLocalTime(schedule?.cron_expression ?? null);
   };
 
   const [robotId, setRobotId] = useState(schedule?.robot_id ?? "");

@@ -69,22 +69,22 @@ export function cronToLocalTime(cron: string | null): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-// Calculate next run from cron "MIN HOUR * * DOW"
+// Calculate next run from cron "MIN HOUR * * DOW" (cron is in UTC)
 export function getNextRunFromCron(cron: string | null): Date | null {
   if (!cron) return null;
   const parts = cron.trim().split(/\s+/);
   if (parts.length < 5) return null;
   const [minuteStr, hourStr, , , dowStr] = parts;
-  const minute = parseInt(minuteStr);
-  const hour = parseInt(hourStr);
+  const utcMinute = parseInt(minuteStr);
+  const utcHour = parseInt(hourStr);
   const daysOfWeek = dowStr === "*" ? [0, 1, 2, 3, 4, 5, 6] : dowStr.split(",").map(Number);
   const now = new Date();
   for (let d = 0; d <= 7; d++) {
     const candidate = new Date(now);
-    candidate.setDate(candidate.getDate() + d);
-    candidate.setHours(hour, minute, 0, 0);
+    candidate.setUTCDate(candidate.getUTCDate() + d);
+    candidate.setUTCHours(utcHour, utcMinute, 0, 0);
     if (candidate <= now) continue;
-    if (daysOfWeek.includes(candidate.getDay())) return candidate;
+    if (daysOfWeek.includes(candidate.getUTCDay())) return candidate;
   }
   return null;
 }

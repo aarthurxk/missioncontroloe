@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 import type { Tables } from "@/integrations/supabase/types";
+import { isHoliday } from "@/lib/holidays";
 
 export type Schedule = Tables<"schedules">;
 export type ScheduleWithRobot = Schedule & { robots: Tables<"robots"> | null };
@@ -60,33 +61,58 @@ export function cronToLocalTime(cron: string | null): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
-// Calculate next run from cron "MIN HOUR * * DOW" (cron is in Recife local time, UTC-3)
+/** Result of next-run calculation with holiday awareness */
+export interface NextRunInfo {
+  nextRun: Date | null;
+  skippedHoliday?: { date: Date; name: string };
+}
+
+// Calculate next run from cron, skipping holidays
 export function getNextRunFromCron(cron: string | null): Date | null {
-  if (!cron) return null;
+  return getNextRunInfo(cron).nextRun;
+}
+
+export function getNextRunInfo(cron: string | null): NextRunInfo {
+  if (!cron) return { nextRun: null };
   const parts = cron.trim().split(/\s+/);
-  if (parts.length < 5) return null;
+  if (parts.length < 5) return { nextRun: null };
   const [minuteStr, hourStr, , , dowStr] = parts;
   const localMinute = parseInt(minuteStr);
   const localHour = parseInt(hourStr);
-  // Convert Recife local time to UTC by adding 3 hours
   const utcHour = (localHour + RECIFE_OFFSET_HOURS) % 24;
   const utcMinute = localMinute;
   const daysOfWeek = dowStr === "*" ? [0, 1, 2, 3, 4, 5, 6] : dowStr.split(",").map(Number);
   const now = new Date();
-  for (let d = 0; d <= 7; d++) {
+  let skippedHoliday: NextRunInfo["skippedHoliday"] | undefined;
+
+  for (let d = 0; d <= 60; d++) {
     const candidate = new Date(now);
     candidate.setUTCDate(candidate.getUTCDate() + d);
-    // If local hour + 3 crosses midnight, the UTC date is the next day
     if (localHour + RECIFE_OFFSET_HOURS >= 24) {
       candidate.setUTCDate(candidate.getUTCDate() + 1);
     }
     candidate.setUTCHours(utcHour, utcMinute, 0, 0);
     if (candidate <= now) continue;
-    // Check day of week in Recife local time (UTC date minus offset may differ)
+
+    // Get Recife local date for this candidate
     const recifeDate = new Date(candidate.getTime() - RECIFE_OFFSET_HOURS * 60 * 60 * 1000);
-    if (daysOfWeek.includes(recifeDate.getUTCDay())) return candidate;
+    const recifeLocal = new Date(recifeDate.getUTCFullYear(), recifeDate.getUTCMonth(), recifeDate.getUTCDate());
+
+    // Check day of week
+    if (!daysOfWeek.includes(recifeLocal.getDay())) continue;
+
+    // Check holidays
+    const holidayCheck = isHoliday(recifeLocal);
+    if (holidayCheck.holiday) {
+      if (!skippedHoliday) {
+        skippedHoliday = { date: recifeLocal, name: holidayCheck.name! };
+      }
+      continue; // skip this day
+    }
+
+    return { nextRun: candidate, skippedHoliday };
   }
-  return null;
+  return { nextRun: null, skippedHoliday };
 }
 
 // Build cron expression from days + LOCAL time (stored as-is in Recife local time)

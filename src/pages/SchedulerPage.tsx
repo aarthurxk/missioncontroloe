@@ -250,9 +250,10 @@ function ScheduleCard({
     setToggling(false);
   };
 
+  const runInfo = getNextRunInfo(schedule.cron_expression);
   const nextRun = schedule.next_run_at
     ? new Date(schedule.next_run_at)
-    : getNextRunFromCron(schedule.cron_expression);
+    : runInfo.nextRun;
 
   const isOverdue = nextRun && nextRun < new Date();
 
@@ -292,6 +293,13 @@ function ScheduleCard({
                 <span className="font-mono">
                   {format(nextRun, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })}
                 </span>
+              </p>
+            )}
+
+            {runInfo.skippedHoliday && schedule.is_active && (
+              <p className="mt-1 text-xs flex items-center gap-1 text-yellow-500">
+                <AlertTriangle className="h-3 w-3" />
+                Feriado pulado: {runInfo.skippedHoliday.name} ({format(runInfo.skippedHoliday.date, "dd/MM", { locale: ptBR })})
               </p>
             )}
 

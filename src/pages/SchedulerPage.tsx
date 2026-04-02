@@ -67,7 +67,8 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
   };
 
   const cronExpression = buildCronExpression(selectedDays, time);
-  const nextRun = getNextRunFromCron(cronExpression);
+  const runInfo = getNextRunInfo(cronExpression);
+  const nextRun = runInfo.nextRun;
   const displayLabel = parseCronToDisplay(cronExpression);
 
   const allDays = selectedDays.length === 7;

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export function PushNotificationsCard() {
-  const { state, loading, error, subscribe, unsubscribe } = usePushNotifications();
+  const { state, loading, error, subscribe, unsubscribe, sendTestPush } = usePushNotifications();
 
   return (
     <Card className="border-border/50">

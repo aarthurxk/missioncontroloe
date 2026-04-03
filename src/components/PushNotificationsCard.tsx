@@ -1,11 +1,19 @@
-import { Bell, BellOff, BellRing, Smartphone, AlertTriangle, CheckCircle2, XCircle, Send } from "lucide-react";
+import { Bell, BellOff, BellRing, Smartphone, AlertTriangle, XCircle, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { toast } from "sonner";
 
 export function PushNotificationsCard() {
   const { state, loading, error, subscribe, unsubscribe, sendTestPush } = usePushNotifications();
+
+  const handleTest = async () => {
+    const result = await sendTestPush();
+    if (result?.sent > 0) {
+      toast.success(`Push enviado para ${result.sent} dispositivo(s)!`);
+    }
+  };
 
   return (
     <Card className="border-border/50">
@@ -17,7 +25,6 @@ export function PushNotificationsCard() {
       </CardHeader>
       <CardContent className="space-y-4">
 
-        {/* Unsupported */}
         {state === "unsupported" && (
           <div className="flex items-start gap-3 text-muted-foreground">
             <XCircle className="h-5 w-5 mt-0.5 shrink-0" />
@@ -28,7 +35,6 @@ export function PushNotificationsCard() {
           </div>
         )}
 
-        {/* Not installed as PWA */}
         {state === "not-pwa" && (
           <div className="flex items-start gap-3">
             <Smartphone className="h-5 w-5 mt-0.5 shrink-0 text-warning" />
@@ -50,20 +56,18 @@ export function PushNotificationsCard() {
           </div>
         )}
 
-        {/* VAPID key not configured */}
         {state === "no-vapid" && (
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0 text-warning" />
             <div className="space-y-1">
               <p className="text-sm font-medium">Backend não configurado</p>
               <p className="text-xs text-muted-foreground">
-                A chave VAPID pública não está definida. Consulte a documentação de deploy para configurar <code className="text-primary">VITE_VAPID_PUBLIC_KEY</code>.
+                As chaves VAPID não estão configuradas no backend. Consulte a documentação de deploy.
               </p>
             </div>
           </div>
         )}
 
-        {/* Permission denied */}
         {state === "denied" && (
           <div className="flex items-start gap-3">
             <BellOff className="h-5 w-5 mt-0.5 shrink-0 text-destructive" />
@@ -76,9 +80,8 @@ export function PushNotificationsCard() {
           </div>
         )}
 
-        {/* Ready to subscribe */}
         {state === "ready" && (
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <Bell className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
               <div className="space-y-1">
@@ -88,15 +91,14 @@ export function PushNotificationsCard() {
                 </p>
               </div>
             </div>
-            <Button onClick={subscribe} disabled={loading} size="sm" className="shrink-0">
+            <Button onClick={subscribe} disabled={loading} size="sm" className="shrink-0 self-end sm:self-auto">
               {loading ? "Ativando…" : "Ativar"}
             </Button>
           </div>
         )}
 
-        {/* Subscribed */}
         {state === "subscribed" && (
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3">
             <div className="flex items-start gap-3">
               <BellRing className="h-5 w-5 mt-0.5 shrink-0 text-success" />
               <div className="space-y-1">
@@ -105,26 +107,25 @@ export function PushNotificationsCard() {
                   <Badge variant="secondary" className="bg-success/20 text-success text-[10px]">ON</Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Você será notificado quando execuções terminarem neste dispositivo.
+                  Você será notificado sobre execuções e status do bridge neste dispositivo.
                 </p>
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
-              <Button onClick={sendTestPush} disabled={loading} size="sm" variant="secondary" className="shrink-0">
+            <div className="flex gap-2 justify-end">
+              <Button onClick={handleTest} disabled={loading} size="sm" variant="secondary">
                 <Send className="h-3 w-3 mr-1" />
                 {loading ? "Enviando…" : "Testar"}
               </Button>
-              <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline" className="shrink-0">
+              <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline">
                 {loading ? "Desativando…" : "Desativar"}
               </Button>
             </div>
           </div>
         )}
 
-        {/* Error message */}
         {error && (
           <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
-            <p className="text-xs text-destructive">{error}</p>
+            <p className="text-xs text-destructive break-words">{error}</p>
           </div>
         )}
       </CardContent>

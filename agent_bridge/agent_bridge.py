@@ -294,6 +294,7 @@ def run_robot(exec_id: str, robot_id: str):
                 "finished_at": now_iso(),
             })
             print(f"[bridge] ❌  {robot_id[:8]} erro código {process.returncode} ({duration}s)", flush=True)
+            send_push_notification(exec_id, robot_id, "error")
 
     except Exception as e:
         duration = int(time.time() - start_time)

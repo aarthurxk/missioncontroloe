@@ -432,8 +432,9 @@ const SettingsPage = () => {
           )}
 
           {role === "admin" && (
-            <TabsContent value="general">
+            <TabsContent value="general" className="space-y-6">
               <GeneralSettings />
+              <PushNotificationsCard />
             </TabsContent>
           )}
         </Tabs>

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getNextRunInfo } from "@/hooks/useSchedules";
 
 type Execution = {
   id: string;
@@ -431,9 +432,10 @@ const AnalyticsPage = () => {
                       </TableCell>
                       <TableCell>{freqLabel[s.frequency] ?? s.frequency}</TableCell>
                       <TableCell>
-                        {s.next_run_at
-                          ? format(new Date(s.next_run_at), "dd/MM/yyyy HH:mm")
-                          : "—"}
+                        {(() => {
+                          const nr = getNextRunInfo(s.cron_expression).nextRun;
+                          return nr ? format(nr, "dd/MM/yyyy HH:mm") : "—";
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Badge variant={s.is_active ? "default" : "secondary"}>

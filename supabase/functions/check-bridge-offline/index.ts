@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import * as webpush from "jsr:@negrel/webpush";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,58 +7,48 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-// VAPID signing (same as web-push)
-async function generatePushHeaders(
-  endpoint: string,
-  vapidSubject: string,
-  vapidPublicKey: string,
-  vapidPrivateKey: string
-): Promise<{ authorization: string; cryptoKey: string }> {
-  const header = btoa(JSON.stringify({ typ: "JWT", alg: "ES256" }))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+function b64urlToBytes(b64url: string): Uint8Array {
+  const pad = b64url + "=".repeat((4 - (b64url.length % 4)) % 4);
+  const raw = atob(pad.replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
 
-  const aud = new URL(endpoint).origin;
-  const exp = Math.floor(Date.now() / 1000) + 12 * 3600;
-  const payload = btoa(JSON.stringify({ aud, exp, sub: vapidSubject }))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+function bytesToB64url(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
-  const pad = (s: string) => s + "=".repeat((4 - (s.length % 4)) % 4);
-  const rawPrivate = Uint8Array.from(
-    atob(pad(vapidPrivateKey.replace(/-/g, "+").replace(/_/g, "/"))),
-    (c) => c.charCodeAt(0)
-  );
-  const rawPublic = Uint8Array.from(
-    atob(pad(vapidPublicKey.replace(/-/g, "+").replace(/_/g, "/"))),
-    (c) => c.charCodeAt(0)
-  );
-  const x = btoa(String.fromCharCode(...rawPublic.slice(1, 33)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const y = btoa(String.fromCharCode(...rawPublic.slice(33, 65)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const d = btoa(String.fromCharCode(...rawPrivate))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function buildAppServer(): Promise<webpush.ApplicationServer> {
+  const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY")!;
+  const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY")!;
+  const vapidSubject = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@example.com";
 
-  const key = await crypto.subtle.importKey(
-    "jwk",
-    { kty: "EC", crv: "P-256", x, y, d },
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"]
-  );
+  const rawPub = b64urlToBytes(vapidPublicKey);
+  const rawPriv = b64urlToBytes(vapidPrivateKey);
 
-  const sigInput = new TextEncoder().encode(`${header}.${payload}`);
-  const sigBuf = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    sigInput
-  );
-  const sig = btoa(String.fromCharCode(...new Uint8Array(sigBuf)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
-  return {
-    authorization: `vapid t=${header}.${payload}.${sig}, k=${vapidPublicKey}`,
-    cryptoKey: `p256ecdsa=${vapidPublicKey}`,
+  const pubJwk: JsonWebKey = {
+    kty: "EC",
+    crv: "P-256",
+    x: bytesToB64url(rawPub.slice(1, 33)),
+    y: bytesToB64url(rawPub.slice(33, 65)),
   };
+
+  const privJwk: JsonWebKey = {
+    ...pubJwk,
+    d: bytesToB64url(rawPriv),
+  };
+
+  const vapidKeys = await webpush.importVapidKeys({
+    publicKey: pubJwk,
+    privateKey: privJwk,
+  });
+
+  return await webpush.ApplicationServer.new({
+    contactInformation: vapidSubject,
+    vapidKeys,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -72,7 +63,6 @@ Deno.serve(async (req) => {
 
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-    const vapidSubject = Deno.env.get("VAPID_SUBJECT") || "mailto:admin@example.com";
 
     if (!vapidPublicKey || !vapidPrivateKey) {
       return new Response(JSON.stringify({ error: "VAPID not configured" }), {
@@ -105,7 +95,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if we already sent an offline alert recently (via app_settings)
+    // Check if we already sent an offline alert recently
     const { data: lastAlert } = await sb
       .from("app_settings")
       .select("value")
@@ -115,7 +105,6 @@ Deno.serve(async (req) => {
     if (lastAlert?.value) {
       const lastAlertTime = new Date(lastAlert.value);
       const alertDiffMin = (Date.now() - lastAlertTime.getTime()) / 1000 / 60;
-      // Don't spam — only alert once every 30 minutes
       if (alertDiffMin < 30) {
         return new Response(
           JSON.stringify({ status: "offline_already_alerted", minutes_ago: diffMinutes.toFixed(1) }),
@@ -136,35 +125,35 @@ Deno.serve(async (req) => {
       title: "⚠️ Agent Bridge Offline",
       body: `Sem conexão há ${Math.floor(diffMinutes)} minutos. Verifique a VPS.`,
       tag: "bridge-offline",
-      url: "/settings",
+      url: "/",
     });
 
+    const appServer = await buildAppServer();
     let sent = 0;
     let removed = 0;
 
     for (const sub of subs) {
       try {
-        const vapidHeaders = await generatePushHeaders(
-          sub.endpoint, vapidSubject, vapidPublicKey, vapidPrivateKey
-        );
-
-        const resp = await fetch(sub.endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/octet-stream",
-            TTL: "86400",
-            Urgency: "high",
-            Authorization: vapidHeaders.authorization,
-            "Crypto-Key": vapidHeaders.cryptoKey,
+        const subscriber = appServer.subscribe({
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.keys_p256dh,
+            auth: sub.keys_auth,
           },
-          body: notifPayload,
         });
 
-        if (resp.status === 410 || resp.status === 404) {
+        const resp = await subscriber.pushTextMessage(notifPayload, {
+          urgency: "high",
+          ttl: 86400,
+        });
+
+        if (resp.ok || resp.status === 201) {
+          sent++;
+        } else if (resp.status === 410 || resp.status === 404) {
           await sb.from("push_subscriptions").delete().eq("id", sub.id);
           removed++;
-        } else if (resp.ok || resp.status === 201) {
-          sent++;
+        } else {
+          console.error(`Push failed for ${sub.id}: ${resp.status} ${await resp.text()}`);
         }
       } catch (e) {
         console.error(`Push error for ${sub.id}:`, e);

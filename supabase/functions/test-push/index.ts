@@ -41,11 +41,12 @@ async function buildAppServer(): Promise<webpush.ApplicationServer> {
   };
 
   const vapidKeys = await webpush.importVapidKeys({
-    privateKey: privJwk,
     publicKey: pubJwk,
+    privateKey: privJwk,
   });
 
-  return new webpush.ApplicationServer({
+  // Use ApplicationServer.new() which generates ECDH keys for encryption
+  return await webpush.ApplicationServer.new({
     contactInformation: vapidSubject,
     vapidKeys,
   });
@@ -86,7 +87,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use service role to read subscriptions
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminSb = createClient(supabaseUrl, serviceRoleKey);
 

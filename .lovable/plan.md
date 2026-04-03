@@ -1,142 +1,93 @@
 
+Objetivo: corrigir o fluxo inteiro de push no iPhone, eliminando o erro real de entrega e ajustando os pontos de UX e segurança que ainda ficaram inconsistentes.
 
-## Implementação Completa de Push Notifications para iPhone
+1. Diagnóstico confirmado
+- O cadastro da assinatura já acontece em parte: o card chega ao estado “ON” e há registros em `push_subscriptions`.
+- O erro principal está no envio: os logs mostram repetidamente `400 BadWebPushRequest`.
+- A causa mais provável está clara no código atual: `test-push`, `web-push` e `check-bridge-offline` enviam JSON bruto para o endpoint do navegador, mas não fazem a criptografia Web Push usando `keys_p256dh` e `keys_auth`.
+- Hoje essas chaves são salvas no banco, porém nunca são usadas no envio. Isso quebra especialmente no ecossistema do iPhone/Safari.
+- Há problemas secundários:
+  - o card quebra no layout mobile (como no print);
+  - o estado `no-vapid` e a documentação ainda falam de `VITE_VAPID_PUBLIC_KEY`, mas o app já busca a chave em runtime;
+  - o `upsert`/`delete` do hook não valida `error`, então a UI pode parecer ativa mesmo se o backend falhar;
+  - a tabela `push_subscriptions` está com policies amplas para `anon`, o que é desnecessário e inseguro.
 
-### Situação atual
+2. O que vou corrigir
+- Substituir a lógica manual de envio por uma implementação Web Push compatível de verdade, usando as chaves da assinatura (`p256dh` + `auth`) e VAPID corretamente.
+- Centralizar essa lógica em um helper compartilhado para evitar três versões diferentes do mesmo bug:
+  - `supabase/functions/test-push/index.ts`
+  - `supabase/functions/web-push/index.ts`
+  - `supabase/functions/check-bridge-offline/index.ts`
+- Ajustar o fluxo do frontend para só marcar “ativado” quando a assinatura tiver sido salva no backend sem erro.
+- Melhorar o card para iPhone:
+  - layout responsivo;
+  - feedback melhor no botão “Testar”;
+  - mensagens consistentes com a implementação real.
+- Atualizar a documentação para refletir o fluxo atual e remover instruções antigas.
 
-Depois de auditar o projeto, **nenhum dos arquivos de push notification existe**. Não há manifest, service worker, hook, componente, edge function nem tabela `push_subscriptions`. Tudo precisa ser criado do zero, mas sem alterar o que já funciona.
+3. Ajustes de backend
+- Criar um helper compartilhado de envio push nas functions.
+- Esse helper vai:
+  - montar payload;
+  - usar VAPID;
+  - enviar para cada subscription com criptografia compatível;
+  - remover subscriptions expiradas (`404/410`);
+  - devolver contagem de `sent`, `failed`, `removed`.
+- `test-push` continuará enviando apenas para o usuário autenticado.
+- `web-push` continuará sendo chamado pelo bridge quando uma execução terminar.
+- `check-bridge-offline` continuará disparando quando o heartbeat ficar antigo, mas vou ajustar o link da notificação para uma rota acessível ao usuário, em vez de depender de `/settings`.
 
-### O que será criado
+4. Ajustes de segurança
+- Fazer uma migration para remover as policies de `anon` em `push_subscriptions`.
+- Deixar a tabela acessível assim:
+  - usuário autenticado: lê/insere/remove apenas as próprias subscriptions;
+  - functions: usam service role internamente para envio e limpeza.
+- Isso mantém o comportamento atual, mas sem expor a tabela para leitura/deleção ampla.
 
-#### 1. PWA Base (instalável no iPhone)
+5. Ajustes no frontend
+- `src/hooks/usePushNotifications.ts`
+  - validar retorno de `upsert` e `delete`;
+  - só mudar para `subscribed` quando salvar no backend com sucesso;
+  - mostrar erro real quando o cadastro falhar;
+  - manter o teste de push com retorno mais claro.
+- `src/components/PushNotificationsCard.tsx`
+  - corrigir o layout quebrado no iPhone;
+  - empilhar conteúdo/botões em telas estreitas;
+  - melhorar o texto do estado ativo para incluir teste/manual;
+  - corrigir a cópia do estado “backend não configurado”.
+- Opcionalmente, se o registro local existir mas não estiver salvo no backend, o hook pode re-sincronizar automaticamente.
 
-**`public/manifest.webmanifest`**
-- Manifest com `display: "standalone"`, nome "Mission Control", tema escuro
-- Referência aos ícones que serão gerados a partir do favicon existente
-- Será linkado no `index.html` junto com `<meta name="apple-mobile-web-app-capable">`
+6. Documentação e consistência
+- Atualizar `docs/PUSH_NOTIFICATIONS.md` para:
+  - remover dependência de `VITE_VAPID_PUBLIC_KEY`;
+  - explicar que a chave pública é buscada do backend;
+  - documentar exatamente quais notificações o usuário recebe:
+    - teste manual;
+    - execução concluída com sucesso;
+    - execução com erro;
+    - execução cancelada;
+    - bridge offline.
 
-**`public/icon-192.png`** e **`public/icon-512.png`**
-- Gerados programaticamente a partir do favicon atual (robô dentista)
+7. Validação que vou seguir após implementar
+- Confirmar que `test-push` deixa de gerar `BadWebPushRequest`.
+- Confirmar que o retorno da function mostra `sent > 0` quando houver dispositivo válido.
+- Testar os 3 cenários de envio:
+  - botão “Testar”;
+  - finalização de execução;
+  - bridge offline.
+- Verificar no iPhone:
+  - PWA instalada pela Tela de Início;
+  - permissão ativa;
+  - push chegando com app fechado;
+  - toque na notificação abrindo o app corretamente.
+- Verificar também que o card não estoura mais no layout mobile.
 
-**`public/apple-touch-icon.png`**
-- Ícone 180x180 para iOS
-
-**`index.html`**
-- Adicionar `<link rel="manifest">`, `<meta name="apple-mobile-web-app-capable">`, `<meta name="theme-color">`, `<link rel="apple-touch-icon">`
-
-#### 2. Service Worker
-
-**`public/sw.js`**
-- Escuta evento `push`, exibe notificação nativa com título/body/icon
-- Escuta `notificationclick` para abrir o app
-- Sem cache offline (evita problemas no preview do Lovable)
-
-**`src/main.tsx`**
-- Registra o service worker apenas em produção e fora de iframe (seguindo as regras de PWA do Lovable)
-
-#### 3. Tabela de subscriptions (migração SQL)
-
-```sql
-CREATE TABLE public.push_subscriptions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  endpoint text NOT NULL,
-  keys_p256dh text NOT NULL,
-  keys_auth text NOT NULL,
-  device_label text,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(user_id, endpoint)
-);
-```
-- RLS: usuários autenticados podem inserir/deletar/selecionar apenas suas próprias subscriptions
-
-#### 4. Hook React
-
-**`src/hooks/usePushNotifications.ts`**
-- Detecta suporte a push (incluindo Safari/iOS 16.4+)
-- Gerencia subscription VAPID via `PushManager.subscribe()`
-- Salva/remove subscription no banco
-- Expõe estados: `supported`, `subscribed`, `loading`, `error`
-- Lê `VITE_VAPID_PUBLIC_KEY` do environment
-
-#### 5. Componente UI
-
-**`src/components/PushNotificationsCard.tsx`**
-- Card para a aba "Geral" das Settings
-- Estados visuais: não suportado, não instalado como PWA (com instruções iPhone), pronto para ativar, ativo, erro
-- Instruções curtas para iPhone: "Adicione à Tela de Início primeiro"
-- Aviso quando VAPID key não está configurada
-- Botão Ativar/Desativar com feedback visual
-
-**`src/pages/SettingsPage.tsx`**
-- Adicionar o `PushNotificationsCard` na aba "Geral"
-
-#### 6. Edge Function `web-push`
-
-**`supabase/functions/web-push/index.ts`**
-- Recebe `{ execution_id, robot_name, status }` via POST
-- Busca todas as subscriptions dos usuários
-- Envia push usando Web Push Protocol (RFC 8030) com biblioteca `web-push`
-- Autenticação via secret `MISSION_CONTROL_PUSH_SECRET` (shared secret com o bridge)
-- CORS headers inclusos
-- Remove subscriptions inválidas (410 Gone)
-
-**`supabase/functions/web-push/deno.json`**
-- Import map para dependência `web-push`
-
-#### 7. Agent Bridge — disparo de push
-
-**`agent_bridge/agent_bridge.py`**
-- Após setar status final (success/error/cancelled), faz POST para a edge function `web-push`
-- Busca o nome do robô para incluir na notificação
-- Usa secret `MISSION_CONTROL_PUSH_SECRET` do ambiente
-- Falha silenciosa (push é best-effort, não bloqueia o fluxo)
-
-#### 8. Documentação
-
-**`docs/PUSH_NOTIFICATIONS.md`**
-- Passo a passo completo: gerar VAPID keys, configurar secrets, deployar, testar no iPhone
-- Variáveis necessárias listadas
-- Comandos exatos
-
-### Secrets necessários (a serem configurados)
-
-| Secret | Onde | Descrição |
-|--------|------|-----------|
-| `VAPID_PUBLIC_KEY` | Edge Function + `.env` como `VITE_VAPID_PUBLIC_KEY` | Chave pública VAPID |
-| `VAPID_PRIVATE_KEY` | Edge Function | Chave privada VAPID |
-| `VAPID_SUBJECT` | Edge Function | Email ou URL (ex: `mailto:admin@seudominio.com`) |
-| `MISSION_CONTROL_PUSH_SECRET` | Edge Function + host do bridge | Shared secret para autenticar o bridge |
-
-### Arquivos modificados
-
-- `index.html` — meta tags PWA
-- `src/main.tsx` — registro do SW
-- `src/pages/SettingsPage.tsx` — incluir PushNotificationsCard
-
-### Arquivos criados
-
-- `public/manifest.webmanifest`
-- `public/sw.js`
-- `public/icon-192.png`, `public/icon-512.png`, `public/apple-touch-icon.png`
+Se aprovado, vou implementar nesses arquivos:
+- `supabase/functions/test-push/index.ts`
+- `supabase/functions/web-push/index.ts`
+- `supabase/functions/check-bridge-offline/index.ts`
+- helper compartilhado em `supabase/functions/_shared/...`
+- nova migration para endurecer RLS de `push_subscriptions`
 - `src/hooks/usePushNotifications.ts`
 - `src/components/PushNotificationsCard.tsx`
-- `supabase/functions/web-push/index.ts`
-- `supabase/functions/web-push/deno.json`
 - `docs/PUSH_NOTIFICATIONS.md`
-- Migração SQL para `push_subscriptions`
-
-### Arquivos NÃO modificados
-
-- `agent_bridge/agent_bridge.py` — será modificado para adicionar o disparo de push
-- Ícone do robô dentista (favicon.ico) — preservado intacto
-- Nenhum componente visual existente será alterado
-
-### Requisitos para funcionar no iPhone
-
-- iOS 16.4+ com Safari
-- App instalado na Tela de Início (obrigatório para push no iOS)
-- Manifest com `display: "standalone"`
-- Service worker registrado
-- Permissão de notificação concedida pelo usuário via gesto (tap no botão)
-

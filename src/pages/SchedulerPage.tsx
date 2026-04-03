@@ -251,9 +251,7 @@ function ScheduleCard({
   };
 
   const runInfo = getNextRunInfo(schedule.cron_expression);
-  const nextRun = schedule.next_run_at
-    ? new Date(schedule.next_run_at)
-    : runInfo.nextRun;
+  const nextRun = runInfo.nextRun;
 
   const isOverdue = nextRun && nextRun < new Date();
 

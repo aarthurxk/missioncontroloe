@@ -110,6 +110,7 @@ Deno.serve(async (req) => {
     const appServer = await buildAppServer();
     let sent = 0;
     let removed = 0;
+    let failed = 0;
 
     for (const sub of subs) {
       try {
@@ -121,26 +122,24 @@ Deno.serve(async (req) => {
           },
         });
 
-        const resp = await subscriber.pushTextMessage(payload, {
+        await subscriber.pushTextMessage(payload, {
           urgency: "high",
           ttl: 86400,
         });
-
-        if (resp.ok || resp.status === 201) {
-          sent++;
-        } else if (resp.status === 410 || resp.status === 404) {
+        sent++;
+      } catch (e) {
+        if (e instanceof webpush.PushMessageError && e.isGone()) {
           await sb.from("push_subscriptions").delete().eq("id", sub.id);
           removed++;
         } else {
-          console.error(`Push failed for ${sub.id}: ${resp.status} ${await resp.text()}`);
+          failed++;
+          console.error(`Push error for ${sub.id}:`, e);
         }
-      } catch (e) {
-        console.error(`Push error for ${sub.id}:`, e);
       }
     }
 
     return new Response(
-      JSON.stringify({ sent, removed, total: subs.length }),
+      JSON.stringify({ sent, removed, failed, total: subs.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

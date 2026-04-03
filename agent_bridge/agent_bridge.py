@@ -29,6 +29,7 @@ POLL_INTERVAL      = 5   # segundos entre cada checagem
 LOG_FLUSH_LINES    = 10  # envia log ao Supabase a cada N linhas
 MAX_PARALLEL       = 3   # máximo de robôs rodando ao mesmo tempo
 HEARTBEAT_INTERVAL = 30  # segundos entre cada heartbeat
+PUSH_SECRET        = os.environ.get("MISSION_CONTROL_PUSH_SECRET", "")
 
 # ─────────────────────────────────────────────────────────────────────────────
 

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getNextRunInfo } from "@/hooks/useSchedules";
 
 type Execution = {
   id: string;

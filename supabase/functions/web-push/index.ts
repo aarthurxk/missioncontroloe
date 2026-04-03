@@ -23,14 +23,13 @@ async function generatePushHeaders(
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
   // Import private key
+  const pad = (s: string) => s + "=".repeat((4 - (s.length % 4)) % 4);
   const rawPrivate = Uint8Array.from(
-    atob(vapidPrivateKey.replace(/-/g, "+").replace(/_/g, "/") + "=="),
+    atob(pad(vapidPrivateKey.replace(/-/g, "+").replace(/_/g, "/"))),
     (c) => c.charCodeAt(0)
   );
-
-  // Build JWK for P-256
   const rawPublic = Uint8Array.from(
-    atob(vapidPublicKey.replace(/-/g, "+").replace(/_/g, "/") + "=="),
+    atob(pad(vapidPublicKey.replace(/-/g, "+").replace(/_/g, "/"))),
     (c) => c.charCodeAt(0)
   );
   const x = btoa(String.fromCharCode(...rawPublic.slice(1, 33)))

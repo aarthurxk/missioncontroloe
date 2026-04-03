@@ -21,12 +21,13 @@ async function generatePushHeaders(
   const payload = btoa(JSON.stringify({ aud, exp, sub: vapidSubject }))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+  const pad = (s: string) => s + "=".repeat((4 - (s.length % 4)) % 4);
   const rawPrivate = Uint8Array.from(
-    atob(vapidPrivateKey.replace(/-/g, "+").replace(/_/g, "/") + "=="),
+    atob(pad(vapidPrivateKey.replace(/-/g, "+").replace(/_/g, "/"))),
     (c) => c.charCodeAt(0)
   );
   const rawPublic = Uint8Array.from(
-    atob(vapidPublicKey.replace(/-/g, "+").replace(/_/g, "/") + "=="),
+    atob(pad(vapidPublicKey.replace(/-/g, "+").replace(/_/g, "/"))),
     (c) => c.charCodeAt(0)
   );
   const x = btoa(String.fromCharCode(...rawPublic.slice(1, 33)))

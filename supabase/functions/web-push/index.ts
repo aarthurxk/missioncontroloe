@@ -41,11 +41,11 @@ async function buildAppServer(): Promise<webpush.ApplicationServer> {
   };
 
   const vapidKeys = await webpush.importVapidKeys({
-    privateKey: privJwk,
     publicKey: pubJwk,
+    privateKey: privJwk,
   });
 
-  return new webpush.ApplicationServer({
+  return await webpush.ApplicationServer.new({
     contactInformation: vapidSubject,
     vapidKeys,
   });
@@ -57,7 +57,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth: shared secret
     const pushSecret = Deno.env.get("MISSION_CONTROL_PUSH_SECRET");
     const authHeader = req.headers.get("x-push-secret") || "";
     if (!pushSecret || authHeader !== pushSecret) {

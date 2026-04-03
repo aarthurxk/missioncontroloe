@@ -282,6 +282,7 @@ def run_robot(exec_id: str, robot_id: str):
                 "finished_at": now_iso(),
             })
             print(f"[bridge] ✅  {robot_id[:8]} sucesso ({duration}s)", flush=True)
+            send_push_notification(exec_id, robot_id, "success")
 
         else:
             last_lines = "\n".join(log_buffer.strip().splitlines()[-10:])

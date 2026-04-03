@@ -1,11 +1,11 @@
-import { Bell, BellOff, BellRing, Smartphone, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Bell, BellOff, BellRing, Smartphone, AlertTriangle, CheckCircle2, XCircle, Send } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 export function PushNotificationsCard() {
-  const { state, loading, error, subscribe, unsubscribe } = usePushNotifications();
+  const { state, loading, error, subscribe, unsubscribe, sendTestPush } = usePushNotifications();
 
   return (
     <Card className="border-border/50">
@@ -109,9 +109,15 @@ export function PushNotificationsCard() {
                 </p>
               </div>
             </div>
-            <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline" className="shrink-0">
-              {loading ? "Desativando…" : "Desativar"}
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button onClick={sendTestPush} disabled={loading} size="sm" variant="secondary" className="shrink-0">
+                <Send className="h-3 w-3 mr-1" />
+                {loading ? "Enviando…" : "Testar"}
+              </Button>
+              <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline" className="shrink-0">
+                {loading ? "Desativando…" : "Desativar"}
+              </Button>
+            </div>
           </div>
         )}
 

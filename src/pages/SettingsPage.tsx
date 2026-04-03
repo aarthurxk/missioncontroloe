@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { UsersTab } from "@/components/UsersTab";
+import { PushNotificationsCard } from "@/components/PushNotificationsCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Bot, Users, Sliders, Server, FolderOpen } from "lucide-react";
@@ -432,8 +433,9 @@ const SettingsPage = () => {
           )}
 
           {role === "admin" && (
-            <TabsContent value="general">
+            <TabsContent value="general" className="space-y-6">
               <GeneralSettings />
+              <PushNotificationsCard />
             </TabsContent>
           )}
         </Tabs>

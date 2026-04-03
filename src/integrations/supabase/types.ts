@@ -157,6 +157,36 @@ export type Database = {
         }
         Relationships: []
       }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          device_label: string | null
+          endpoint: string
+          id: string
+          keys_auth: string
+          keys_p256dh: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_label?: string | null
+          endpoint: string
+          id?: string
+          keys_auth: string
+          keys_p256dh: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_label?: string | null
+          endpoint?: string
+          id?: string
+          keys_auth?: string
+          keys_p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       roadmap: {
         Row: {
           category: string

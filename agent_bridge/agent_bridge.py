@@ -29,6 +29,7 @@ POLL_INTERVAL      = 5   # segundos entre cada checagem
 LOG_FLUSH_LINES    = 10  # envia log ao Supabase a cada N linhas
 MAX_PARALLEL       = 3   # máximo de robôs rodando ao mesmo tempo
 HEARTBEAT_INTERVAL = 30  # segundos entre cada heartbeat
+PUSH_SECRET        = os.environ.get("MISSION_CONTROL_PUSH_SECRET", "")
 
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,37 @@ def get_script_path(robot_id: str) -> str | None:
     except Exception as e:
         print(f"[bridge] Erro ao buscar script_path: {e}", flush=True)
         return None
+
+
+def get_robot_name(robot_id: str) -> str:
+    """Busca o nome do robô."""
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/robots?id=eq.{robot_id}&select=name",
+            headers=HEADERS,
+            timeout=10,
+        )
+        data = r.json()
+        return data[0]["name"] if data else robot_id[:8]
+    except Exception:
+        return robot_id[:8]
+
+
+def send_push_notification(exec_id: str, robot_id: str, status: str):
+    """Envia push notification via edge function (best-effort)."""
+    if not PUSH_SECRET:
+        return
+    try:
+        robot_name = get_robot_name(robot_id)
+        requests.post(
+            f"{SUPABASE_URL}/functions/v1/web-push",
+            headers={"Content-Type": "application/json", "x-push-secret": PUSH_SECRET},
+            json={"execution_id": exec_id, "robot_name": robot_name, "status": status},
+            timeout=10,
+        )
+        print(f"[bridge] 🔔 Push enviado ({status})", flush=True)
+    except Exception as e:
+        print(f"[bridge] Push falhou (não crítico): {e}", flush=True)
 
 
 def send_heartbeat():
@@ -240,6 +272,7 @@ def run_robot(exec_id: str, robot_id: str):
                 "finished_at": now_iso(),
             })
             print(f"[bridge] ✓  {robot_id[:8]} cancelado ({duration}s)", flush=True)
+            send_push_notification(exec_id, robot_id, "cancelled")
 
         elif process.returncode == 0:
             patch_execution(exec_id, {
@@ -249,6 +282,7 @@ def run_robot(exec_id: str, robot_id: str):
                 "finished_at": now_iso(),
             })
             print(f"[bridge] ✅  {robot_id[:8]} sucesso ({duration}s)", flush=True)
+            send_push_notification(exec_id, robot_id, "success")
 
         else:
             last_lines = "\n".join(log_buffer.strip().splitlines()[-10:])
@@ -260,6 +294,7 @@ def run_robot(exec_id: str, robot_id: str):
                 "finished_at": now_iso(),
             })
             print(f"[bridge] ❌  {robot_id[:8]} erro código {process.returncode} ({duration}s)", flush=True)
+            send_push_notification(exec_id, robot_id, "error")
 
     except Exception as e:
         duration = int(time.time() - start_time)

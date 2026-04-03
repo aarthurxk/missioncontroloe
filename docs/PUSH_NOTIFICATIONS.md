@@ -2,7 +2,12 @@
 
 ## Visão Geral
 
-O Mission Control envia push notifications para todos os dispositivos cadastrados quando uma execução de robô termina (success, error ou cancelled). Funciona em iPhone (iOS 16.4+), Android e Desktop.
+O Mission Control envia push notifications para todos os dispositivos cadastrados quando:
+- Uma execução de robô termina (success, error ou cancelled)
+- O Agent Bridge fica offline (sem heartbeat por mais de 2 minutos)
+- O usuário dispara um teste manual pelo botão "Testar"
+
+Funciona em iPhone (iOS 16.4+), Android e Desktop.
 
 ## Pré-requisitos
 
@@ -38,21 +43,11 @@ No painel do Lovable Cloud (Settings → Secrets), adicione:
 | `VAPID_SUBJECT` | `mailto:seu-email@dominio.com` |
 | `MISSION_CONTROL_PUSH_SECRET` | Uma string aleatória forte (ex: `openssl rand -hex 32`) |
 
----
-
-## Passo 3: Configurar variável no frontend
-
-No Lovable, adicione ao `.env` do projeto:
-
-```
-VITE_VAPID_PUBLIC_KEY=BNq-sua-chave-publica-aqui
-```
-
-> ⚠️ Esta é a chave **pública** — seguro colocar no frontend.
+> ℹ️ A chave pública é buscada automaticamente pelo frontend através da edge function `vapid-public-key`. Não é necessário configurar variáveis de ambiente no frontend.
 
 ---
 
-## Passo 4: Configurar o Agent Bridge
+## Passo 3: Configurar o Agent Bridge
 
 Na máquina onde o `agent_bridge.py` roda, defina a variável de ambiente:
 
@@ -75,13 +70,13 @@ sudo systemctl restart agent-bridge
 
 ---
 
-## Passo 5: Deploy da Edge Function
+## Passo 4: Deploy
 
-A função `web-push` é deployada automaticamente pelo Lovable. Nenhum comando manual necessário.
+As edge functions (`web-push`, `test-push`, `check-bridge-offline`, `vapid-public-key`) são deployadas automaticamente pelo Lovable. Nenhum comando manual necessário.
 
 ---
 
-## Passo 6: Testar no iPhone
+## Passo 5: Testar no iPhone
 
 1. Publique o app no Lovable
 2. Abra o site no **Safari** do iPhone (iOS 16.4+)
@@ -89,7 +84,28 @@ A função `web-push` é deployada automaticamente pelo Lovable. Nenhum comando 
 4. Abra o app pela Tela de Início
 5. Vá em **Configurações → Geral** e toque em **Ativar** nas Notificações Push
 6. Aceite a permissão do sistema
-7. Execute um robô — você receberá uma notificação quando terminar
+7. Toque em **Testar** para receber uma notificação de teste
+8. Execute um robô — você receberá uma notificação quando terminar
+
+---
+
+## Arquitetura
+
+### Fluxo de criptografia
+
+O envio de push usa a biblioteca `@negrel/webpush` (RFC 8291 + RFC 8292), que:
+1. Criptografa o payload com AES-128-GCM usando ECDH (chave p256dh do dispositivo)
+2. Autentica o servidor com VAPID (JWT assinado com chave privada)
+3. Envia para o push service do navegador (Apple, Google, Mozilla)
+
+### Edge Functions
+
+| Função | Chamada por | Autenticação |
+|--------|------------|--------------|
+| `vapid-public-key` | Frontend (GET) | Nenhuma |
+| `test-push` | Frontend (POST) | JWT do usuário |
+| `web-push` | Agent Bridge | Shared secret (`x-push-secret`) |
+| `check-bridge-offline` | pg_cron (2 min) | Service role |
 
 ---
 
@@ -103,11 +119,6 @@ A função `web-push` é deployada automaticamente pelo Lovable. Nenhum comando 
 | `VAPID_SUBJECT` | Email de contato (formato `mailto:...`) |
 | `MISSION_CONTROL_PUSH_SECRET` | Shared secret para autenticação bridge→function |
 
-### Frontend (.env)
-| Variável | Descrição |
-|----------|-----------|
-| `VITE_VAPID_PUBLIC_KEY` | Chave pública VAPID (mesma do backend) |
-
 ### Host do Agent Bridge
 | Variável | Descrição |
 |----------|-----------|
@@ -118,7 +129,8 @@ A função `web-push` é deployada automaticamente pelo Lovable. Nenhum comando 
 ## Troubleshooting
 
 - **"Instale o app primeiro"**: No iPhone, push só funciona em PWA standalone. Adicione à Tela de Início.
-- **"Backend não configurado"**: `VITE_VAPID_PUBLIC_KEY` não está no `.env` do frontend.
+- **"Backend não configurado"**: As chaves VAPID não estão configuradas nos secrets do backend.
 - **"Permissão negada"**: O usuário bloqueou notificações. Ir em Ajustes → Notificações do app.
-- **Notificações não chegam**: Verifique os logs da edge function `web-push` no Lovable Cloud.
+- **Notificações não chegam**: Verifique os logs da edge function nos logs do Lovable Cloud.
 - **410 Gone nos logs**: Normal — a subscription expirou e foi removida automaticamente.
+- **400 BadWebPushRequest**: Verifique se as chaves VAPID estão corretas e no formato base64url.

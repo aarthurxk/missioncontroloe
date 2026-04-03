@@ -74,7 +74,7 @@ export function usePushNotifications() {
       const ua = navigator.userAgent;
       const label = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : "Desktop";
 
-      await (supabase.from("push_subscriptions" as any) as any).upsert(
+      const { error: dbError } = await (supabase.from("push_subscriptions" as any) as any).upsert(
         {
           user_id: user.id,
           endpoint: sub.endpoint,
@@ -84,6 +84,10 @@ export function usePushNotifications() {
         },
         { onConflict: "user_id,endpoint" }
       );
+
+      if (dbError) {
+        throw new Error(dbError.message || "Erro ao salvar assinatura no backend.");
+      }
 
       setState("subscribed");
     } catch (e: any) {
@@ -96,14 +100,20 @@ export function usePushNotifications() {
   const unsubscribe = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    setError(null);
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await (supabase.from("push_subscriptions" as any) as any)
+        const { error: dbError } = await (supabase.from("push_subscriptions" as any) as any)
           .delete()
           .eq("user_id", user.id)
           .eq("endpoint", sub.endpoint);
+
+        if (dbError) {
+          throw new Error(dbError.message || "Erro ao remover assinatura.");
+        }
+
         await sub.unsubscribe();
       }
       setState("ready");
@@ -123,6 +133,7 @@ export function usePushNotifications() {
       });
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
+      return data;
     } catch (e: any) {
       setError(e.message || "Erro ao enviar push de teste.");
     } finally {

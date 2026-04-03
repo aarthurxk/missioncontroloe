@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBridgeStatus } from "@/hooks/useBridgeStatus";
-import { Zap, LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle, Bot } from "lucide-react";
+import { LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle, Bot } from "lucide-react";
 
 interface HeaderProps {
   runningCount: number;
@@ -37,9 +37,7 @@ export function Header({ runningCount }: HeaderProps) {
         <div className="flex items-center gap-3 md:gap-6">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md border border-primary/30 bg-primary/10">
-              <Zap className="h-4 w-4 text-primary" />
-            </div>
+            <img src="/icon-192.png" alt="Mission Control" className="h-7 w-7 rounded-md" />
             <h1 className="hidden md:block font-mono text-sm font-bold tracking-widest text-foreground">
               MISSION CONTROL
             </h1>

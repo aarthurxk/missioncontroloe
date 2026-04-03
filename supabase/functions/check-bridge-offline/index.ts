@@ -71,7 +71,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check bridge_status singleton
     const { data: bridge } = await sb
       .from("bridge_status")
       .select("last_seen")
@@ -79,7 +78,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (!bridge || !bridge.last_seen) {
-      console.log("No bridge status found, skipping.");
       return new Response(JSON.stringify({ status: "no_bridge_data" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -95,7 +93,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if we already sent an offline alert recently
     const { data: lastAlert } = await sb
       .from("app_settings")
       .select("value")
@@ -113,7 +110,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Bridge is offline > 2 min, send push to all subscriptions
     const { data: subs } = await sb.from("push_subscriptions").select("*");
     if (!subs || subs.length === 0) {
       return new Response(JSON.stringify({ status: "offline_no_subs", minutes_ago: diffMinutes.toFixed(1) }), {
@@ -131,6 +127,7 @@ Deno.serve(async (req) => {
     const appServer = await buildAppServer();
     let sent = 0;
     let removed = 0;
+    let failed = 0;
 
     for (const sub of subs) {
       try {
@@ -142,32 +139,29 @@ Deno.serve(async (req) => {
           },
         });
 
-        const resp = await subscriber.pushTextMessage(notifPayload, {
+        await subscriber.pushTextMessage(notifPayload, {
           urgency: "high",
           ttl: 86400,
         });
-
-        if (resp.ok || resp.status === 201) {
-          sent++;
-        } else if (resp.status === 410 || resp.status === 404) {
+        sent++;
+      } catch (e) {
+        if (e instanceof webpush.PushMessageError && e.isGone()) {
           await sb.from("push_subscriptions").delete().eq("id", sub.id);
           removed++;
         } else {
-          console.error(`Push failed for ${sub.id}: ${resp.status} ${await resp.text()}`);
+          failed++;
+          console.error(`Push error for ${sub.id}:`, e);
         }
-      } catch (e) {
-        console.error(`Push error for ${sub.id}:`, e);
       }
     }
 
-    // Mark alert sent
     await sb.from("app_settings").upsert({
       key: "bridge_offline_alert_at",
       value: new Date().toISOString(),
     });
 
     return new Response(
-      JSON.stringify({ status: "offline_alerted", sent, removed, minutes_ago: diffMinutes.toFixed(1) }),
+      JSON.stringify({ status: "offline_alerted", sent, removed, failed, minutes_ago: diffMinutes.toFixed(1) }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

@@ -45,7 +45,6 @@ async function buildAppServer(): Promise<webpush.ApplicationServer> {
     privateKey: privJwk,
   });
 
-  // Use ApplicationServer.new() which generates ECDH keys for encryption
   return await webpush.ApplicationServer.new({
     contactInformation: vapidSubject,
     vapidKeys,
@@ -115,6 +114,7 @@ Deno.serve(async (req) => {
 
     let sent = 0;
     let removed = 0;
+    let failed = 0;
 
     for (const sub of subs) {
       try {
@@ -126,27 +126,25 @@ Deno.serve(async (req) => {
           },
         });
 
-        const resp = await subscriber.pushTextMessage(payload, {
+        // pushTextMessage returns void on success, throws PushMessageError on failure
+        await subscriber.pushTextMessage(payload, {
           urgency: "high",
           ttl: 86400,
         });
-
-        if (resp.ok || resp.status === 201) {
-          sent++;
-        } else if (resp.status === 410 || resp.status === 404) {
+        sent++;
+      } catch (e) {
+        if (e instanceof webpush.PushMessageError && e.isGone()) {
           await adminSb.from("push_subscriptions").delete().eq("id", sub.id);
           removed++;
         } else {
-          const body = await resp.text();
-          console.error(`Push failed for ${sub.id}: ${resp.status} ${body}`);
+          failed++;
+          console.error(`Push error for ${sub.id}:`, e);
         }
-      } catch (e) {
-        console.error(`Push error for ${sub.id}:`, e);
       }
     }
 
     return new Response(
-      JSON.stringify({ sent, removed, total: subs.length }),
+      JSON.stringify({ sent, removed, failed, total: subs.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

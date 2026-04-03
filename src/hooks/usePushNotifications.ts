@@ -18,8 +18,7 @@ export function usePushNotifications() {
   const [state, setState] = useState<PushState>("unsupported");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
+  const [vapidKey, setVapidKey] = useState<string | null>(null);
 
   const isPwa =
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -30,11 +29,20 @@ export function usePushNotifications() {
     "PushManager" in window &&
     "Notification" in window;
 
+  // Fetch VAPID public key from backend
+  useEffect(() => {
+    supabase.functions.invoke("vapid-public-key", { method: "GET" }).then(({ data, error: err }) => {
+      if (!err && data?.vapid_public_key) {
+        setVapidKey(data.vapid_public_key);
+      }
+    });
+  }, []);
+
   // Determine initial state
   useEffect(() => {
     if (!isSupported) { setState("unsupported"); return; }
     if (!isPwa) { setState("not-pwa"); return; }
-    if (!vapidKey) { setState("no-vapid"); return; }
+    if (vapidKey === null) { setState("no-vapid"); return; }
     if (Notification.permission === "denied") { setState("denied"); return; }
 
     // Check existing subscription

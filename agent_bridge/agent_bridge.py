@@ -103,6 +103,37 @@ def get_script_path(robot_id: str) -> str | None:
         return None
 
 
+def get_robot_name(robot_id: str) -> str:
+    """Busca o nome do robô."""
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/robots?id=eq.{robot_id}&select=name",
+            headers=HEADERS,
+            timeout=10,
+        )
+        data = r.json()
+        return data[0]["name"] if data else robot_id[:8]
+    except Exception:
+        return robot_id[:8]
+
+
+def send_push_notification(exec_id: str, robot_id: str, status: str):
+    """Envia push notification via edge function (best-effort)."""
+    if not PUSH_SECRET:
+        return
+    try:
+        robot_name = get_robot_name(robot_id)
+        requests.post(
+            f"{SUPABASE_URL}/functions/v1/web-push",
+            headers={"Content-Type": "application/json", "x-push-secret": PUSH_SECRET},
+            json={"execution_id": exec_id, "robot_name": robot_name, "status": status},
+            timeout=10,
+        )
+        print(f"[bridge] 🔔 Push enviado ({status})", flush=True)
+    except Exception as e:
+        print(f"[bridge] Push falhou (não crítico): {e}", flush=True)
+
+
 def send_heartbeat():
     """Avisa o portal que o bridge está vivo."""
     global last_heartbeat

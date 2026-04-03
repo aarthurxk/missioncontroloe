@@ -109,9 +109,15 @@ export function PushNotificationsCard() {
                 </p>
               </div>
             </div>
-            <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline" className="shrink-0">
-              {loading ? "Desativando…" : "Desativar"}
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button onClick={sendTestPush} disabled={loading} size="sm" variant="secondary" className="shrink-0">
+                <Send className="h-3 w-3 mr-1" />
+                {loading ? "Enviando…" : "Testar"}
+              </Button>
+              <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline" className="shrink-0">
+                {loading ? "Desativando…" : "Desativar"}
+              </Button>
+            </div>
           </div>
         )}
 

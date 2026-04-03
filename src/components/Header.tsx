@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBridgeStatus } from "@/hooks/useBridgeStatus";
-import { Zap, LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle, Bot } from "lucide-react";
+import { LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle, Bot } from "lucide-react";
 
 interface HeaderProps {
   runningCount: number;

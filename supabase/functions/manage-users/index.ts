@@ -108,6 +108,23 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true });
   }
 
+  // ── CHANGE PASSWORD: Admin resets a user's password ──
+  if (action === "change_password") {
+    const caller = await getCallerAsAdmin(req, supabase);
+    if (!caller) return jsonResponse({ error: "Apenas admins podem alterar senhas" }, 403);
+
+    const { email, password } = params;
+    // find user by email
+    const { data: { users: found } } = await supabase.auth.admin.listUsers();
+    const target = found?.find((u: any) => u.email === email);
+    if (!target) return jsonResponse({ error: "Usuário não encontrado" }, 404);
+
+    const { error } = await supabase.auth.admin.updateUserById(target.id, { password });
+    if (error) return jsonResponse({ error: error.message }, 400);
+
+    return jsonResponse({ success: true });
+  }
+
   // ── LIST: Admin lists all users with emails ──
   if (action === "list") {
     const caller = await getCallerAsAdmin(req, supabase);

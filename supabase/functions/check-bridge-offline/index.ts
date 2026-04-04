@@ -88,6 +88,75 @@ Deno.serve(async (req) => {
     const diffMinutes = diffMs / 1000 / 60;
 
     if (diffMinutes < 2) {
+      // Check if we previously sent an offline alert — if so, send "back online" notification
+      const { data: lastAlert } = await sb
+        .from("app_settings")
+        .select("value")
+        .eq("key", "bridge_offline_alert_at")
+        .single();
+
+      if (lastAlert?.value) {
+        // There was a previous offline alert — bridge is back online, notify!
+        const { data: allSubs } = await sb.from("push_subscriptions").select("*").order("created_at", { ascending: false });
+
+        if (allSubs && allSubs.length > 0) {
+          // Deduplicate: keep only the most recent subscription per user_id
+          const seenUsers = new Set<string>();
+          const subs: typeof allSubs = [];
+          const staleIds: string[] = [];
+          for (const sub of allSubs) {
+            if (!seenUsers.has(sub.user_id)) {
+              seenUsers.add(sub.user_id);
+              subs.push(sub);
+            } else {
+              staleIds.push(sub.id);
+            }
+          }
+          if (staleIds.length > 0) {
+            await sb.from("push_subscriptions").delete().in("id", staleIds);
+          }
+
+          const offlineAt = new Date(lastAlert.value);
+          const offlineDurationMin = Math.floor((Date.now() - offlineAt.getTime()) / 1000 / 60);
+
+          const reconnectPayload = JSON.stringify({
+            title: "✅ Agent Bridge Online",
+            body: `Reconectado após ${offlineDurationMin} minutos offline.`,
+            tag: "bridge-online",
+            url: "/",
+          });
+
+          const appServer = await buildAppServer();
+          let sent = 0;
+          for (const sub of subs) {
+            try {
+              const subscriber = appServer.subscribe({
+                endpoint: sub.endpoint,
+                keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth },
+              });
+              await subscriber.pushTextMessage(reconnectPayload, { urgency: "high", ttl: 86400 });
+              sent++;
+            } catch (e) {
+              if (e instanceof webpush.PushMessageError && e.isGone()) {
+                await sb.from("push_subscriptions").delete().eq("id", sub.id);
+              } else {
+                console.error(`Push error for ${sub.id}:`, e);
+              }
+            }
+          }
+
+          // Clear the offline alert so we don't re-notify
+          await sb.from("app_settings").delete().eq("key", "bridge_offline_alert_at");
+
+          return new Response(JSON.stringify({ status: "online_reconnected", sent, offline_minutes: offlineDurationMin }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // No subs but clear the flag anyway
+        await sb.from("app_settings").delete().eq("key", "bridge_offline_alert_at");
+      }
+
       return new Response(JSON.stringify({ status: "online", minutes_ago: diffMinutes.toFixed(1) }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

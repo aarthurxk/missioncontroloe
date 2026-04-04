@@ -74,15 +74,19 @@ export function usePushNotifications() {
       const ua = navigator.userAgent;
       const label = /iPhone|iPad/.test(ua) ? "iPhone/iPad" : /Android/.test(ua) ? "Android" : "Desktop";
 
-      const { error: dbError } = await (supabase.from("push_subscriptions" as any) as any).upsert(
+      // Remove all previous subscriptions for this user before inserting the new one
+      await (supabase.from("push_subscriptions" as any) as any)
+        .delete()
+        .eq("user_id", user.id);
+
+      const { error: dbError } = await (supabase.from("push_subscriptions" as any) as any).insert(
         {
           user_id: user.id,
           endpoint: sub.endpoint,
           keys_p256dh: keys.p256dh,
           keys_auth: keys.auth,
           device_label: label,
-        },
-        { onConflict: "user_id,endpoint" }
+        }
       );
 
       if (dbError) {

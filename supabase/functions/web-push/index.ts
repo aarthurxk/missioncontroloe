@@ -87,11 +87,27 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(supabaseUrl, serviceRoleKey);
 
-    const { data: subs } = await sb.from("push_subscriptions").select("*");
-    if (!subs || subs.length === 0) {
+    const { data: allSubs } = await sb.from("push_subscriptions").select("*").order("created_at", { ascending: false });
+    if (!allSubs || allSubs.length === 0) {
       return new Response(JSON.stringify({ sent: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Deduplicate: keep only the most recent subscription per user_id
+    const seenUsers = new Set<string>();
+    const subs: typeof allSubs = [];
+    const staleIds: string[] = [];
+    for (const sub of allSubs) {
+      if (!seenUsers.has(sub.user_id)) {
+        seenUsers.add(sub.user_id);
+        subs.push(sub);
+      } else {
+        staleIds.push(sub.id);
+      }
+    }
+    if (staleIds.length > 0) {
+      await sb.from("push_subscriptions").delete().in("id", staleIds);
     }
 
     const statusEmoji: Record<string, string> = {

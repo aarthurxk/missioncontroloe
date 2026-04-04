@@ -1,0 +1,1 @@
+CREATE POLICY "allow_all_delete" ON schedules FOR DELETE USING (true);

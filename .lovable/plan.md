@@ -1,47 +1,37 @@
 
 
-## Análise do Problema
+## Diagnóstico
 
-**Hoje, 3 de abril de 2026, é Sexta-feira Santa** — feriado nacional. Os 3 robôs rodaram mesmo assim, todos disparados por `triggered_by: 'schedule'`.
+A edge function `check-bridge-offline` **está funcionando** — quando invoquei agora, ela retornou `"sent": 7, "failed": 0, "removed": 0`. Ou seja, os 7 pushes foram aceitos pelo serviço da Apple (APNs) sem erro.
 
-### Causa raiz (dois erros combinados)
+### Por que você não recebeu?
 
-1. **A correção de timezone de ontem causou o problema**: Quando corrigimos o bug dos horários (somando 3 horas ao `next_run_at`), a migration simplesmente fez `next_run_at = next_run_at + interval '3 hours'` — sem verificar se a nova data caía num feriado. O resultado: os 3 agendamentos ficaram com `next_run_at` apontando para hoje (sexta-feira santa).
+O problema é que existem **7 subscriptions** na tabela `push_subscriptions`, todas do mesmo usuário e todas de "iPhone/iPad". Cada vez que você abre o PWA e se inscreve, uma nova subscription é criada com um endpoint diferente. Provavelmente apenas a **última** é válida — as outras 6 são tokens antigos que a Apple aceita silenciosamente mas não entrega.
 
-2. **A edge function `trigger-schedules` NÃO verifica feriados**: Ela apenas checa `next_run_at <= now()` e dispara. A lógica de pular feriados só existe no **frontend** (no `getNextRunInfo` em `useSchedules.ts`), que é usada para exibição e para salvar o `next_run_at` quando um agendamento é criado ou editado pelo usuário. Mas a edge function, ao recalcular o próximo `next_run_at` após disparar, usa apenas `cron-parser` — que não conhece feriados brasileiros.
+Além disso, a Apple (APNs) tem comportamentos específicos:
+- Tokens antigos são aceitos (não retornam 410 Gone imediatamente) mas a notificação não é entregue
+- Se o app não está na Tela de Início ou o Safari fechou o Service Worker, o push pode ser descartado
 
-### Resumo do fluxo com falha
+### Dados atuais
 
-```text
-Migration ontem → next_run_at = 2026-04-03 (sexta-feira santa)
-                    ↓
-pg_cron (1 min) → trigger-schedules verifica: next_run_at <= now()? SIM
-                    ↓
-Cria execução "pending" → agent_bridge roda o script ✗ (deveria ter pulado)
-                    ↓
-Recalcula next_run_at com cron-parser (sem verificar feriado)
-```
+- **Bridge offline há**: ~9 minutos (last_seen: 00:44 UTC)
+- **Subscriptions**: 7 registros, todos iPhone/iPad, mesmo user_id
+- **Alerta cooldown**: Configurado para 30 min entre alertas (funcionando)
+- **pg_cron**: Rodando a cada 2 minutos (ativo)
 
-## Correção
+## Plano de Correção
 
-### 1. Recriar `trigger-schedules` com verificação de feriados
+### 1. Limpar subscriptions duplicadas no banco
+Manter apenas a subscription mais recente por `user_id` e deletar as antigas. Isso garante que o push vai para o token ativo.
 
-A edge function precisa ser recriada no repositório (foi deletada em algum momento) com lógica de feriados embutida:
+### 2. Adicionar lógica de deduplicação no hook `usePushNotifications`
+Ao fazer `subscribe()`, antes de inserir, deletar todas as subscriptions anteriores do mesmo `user_id` (exceto o endpoint atual). Isso evita acúmulo de tokens antigos no futuro.
 
-- Antes de criar a execução, verificar se a data local (Recife, UTC-3) do `next_run_at` é feriado
-- Se for feriado, **pular** — não criar execução, e avançar `next_run_at` para o próximo dia útil válido
-- Ao recalcular o próximo `next_run_at`, aplicar a mesma lógica de pular feriados (replicar a lista de feriados do `holidays.ts` dentro da edge function)
-
-### 2. Adicionar módulo de feriados para a edge function
-
-Criar um arquivo compartilhado `supabase/functions/_shared/holidays.ts` com a mesma lógica de `src/lib/holidays.ts` (cálculo de Páscoa, feriados fixos e móveis, verificação de data).
-
-### 3. Corrigir o `next_run_at` atual no banco
-
-Os valores atuais (April 4) podem estar corretos agora, mas precisam ser verificados — April 4 é sábado, e os crons são `2,3,4,5,6` (seg-sáb). Sábado = 6, então pode estar certo. Verificar e corrigir se necessário.
+### 3. Adicionar limpeza periódica na edge function
+Na `check-bridge-offline` e `web-push`, após enviar pushes, verificar subscriptions duplicadas por user e manter apenas a mais recente.
 
 ### Arquivos afetados
-- **Novo**: `supabase/functions/_shared/holidays.ts` — lógica de feriados para edge functions
-- **Novo**: `supabase/functions/trigger-schedules/index.ts` — edge function recriada com verificação de feriados
-- **Verificação**: dados atuais de `next_run_at` no banco
+- **Migration SQL**: DELETE subscriptions antigas (manter só a mais recente por user)
+- `src/hooks/usePushNotifications.ts`: Limpar tokens antigos ao se inscrever
+- `supabase/functions/check-bridge-offline/index.ts`: Deduplicação antes do envio
 

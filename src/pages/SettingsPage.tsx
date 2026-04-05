@@ -358,7 +358,7 @@ const SettingsPage = () => {
           </TabsList>
 
           <TabsContent value="robots" className="space-y-6">
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="gap-2" disabled={robots.length === 0}>

@@ -329,9 +329,10 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-16 md:pb-0">
       <Header runningCount={runningCount} isConnected={true} />
-      <div className="mx-auto w-full max-w-4xl p-6 space-y-6">
+      <BottomTabBar />
+      <div className="mx-auto w-full max-w-4xl p-4 md:p-6 space-y-4 md:space-y-6">
         <h1 className="text-xl font-bold">Configurações</h1>
 
         <Tabs defaultValue="robots" className="space-y-6">

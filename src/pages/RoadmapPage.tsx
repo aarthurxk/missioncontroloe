@@ -343,8 +343,9 @@ export default function RoadmapPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-16 md:pb-0">
       <Header runningCount={runningCount} isConnected={true} />
+      <BottomTabBar />
 
       <div className="flex items-center justify-between px-3 md:px-6 py-3 md:py-4 border-b">
         <h2 className="text-sm md:text-base font-bold uppercase tracking-wider">🗺️ Robot Roadmap</h2>

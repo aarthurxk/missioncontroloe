@@ -45,9 +45,10 @@ const Logs = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-16 md:pb-0">
       <Header runningCount={runningCount} isConnected={true} />
-      <div className="p-6 space-y-6">
+      <BottomTabBar />
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Logs de Execução</h1>
           <Button variant="outline" size="sm" onClick={exportCSV} className="gap-2">

@@ -113,7 +113,7 @@ const Index = () => {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background">
+    <div className="flex h-screen flex-col overflow-hidden bg-background overflow-x-hidden">
       <Header runningCount={runningCount} isConnected={true} />
       <div className="px-6 py-3">
         <KpiCards robots={robots} executions={executions as any} />

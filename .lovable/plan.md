@@ -1,34 +1,17 @@
 
 
-## Fix: Prevent horizontal swipe from moving the entire screen
+## Fix: Settings tabs not scrollable on mobile
 
 ### Problem
-On iOS Safari/PWA, swiping horizontally drags the entire page (elastic overscroll). The user wants pages to stay fixed — navigation should only happen by tapping the bottom tab bar buttons.
-
-### Root Cause
-There is no `overflow-x: hidden` on the root containers (`html`, `body`, or the main page wrappers). iOS Safari allows elastic horizontal scrolling by default. Additionally, some content (like the Settings page tabs, buttons, or cards) may overflow the viewport width, triggering the horizontal scroll.
+The `TabsList` in the Settings page contains 4 tabs (Robôs, Usuários, Infraestrutura, Geral) that overflow the screen width on mobile. The container doesn't allow horizontal scrolling, so the last tab ("Geral") is cut off and unreachable.
 
 ### Fix
 
-**1. `src/index.css`** — Add `overflow-x: hidden` to `html` and `body` to kill horizontal scroll globally, and add `overscroll-behavior-x: none` to prevent the iOS rubber-band effect:
+**`src/pages/SettingsPage.tsx`** — Make the `TabsList` horizontally scrollable on mobile:
+- Add `overflow-x-auto` and `w-full justify-start` to the `TabsList`
+- Add `flex-nowrap` so tabs stay in a single row
+- Add the `scrollbar-hide` class (already defined in `index.css`) to hide the scrollbar while keeping scroll functionality
+- Add `min-w-max` to prevent tabs from shrinking
 
-```css
-html, body {
-  overflow-x: hidden;
-  overscroll-behavior-x: none;
-}
-```
-
-**2. `src/pages/SettingsPage.tsx`** — The Settings page content (buttons "Remover Todos" + "Novo Robô", robot cards with edit/delete icons) overflows horizontally on small screens (visible in the screenshots). Fix by:
-- Wrapping the action buttons in a responsive flex container that wraps on mobile
-- Ensuring robot list items don't overflow (truncate text, constrain icon buttons)
-
-**3. `src/pages/Index.tsx`** — Add `overflow-x: hidden` to the main wrapper to prevent any internal horizontal scroll leaking out.
-
-### Files to Edit
-| File | Change |
-|------|--------|
-| `src/index.css` | Add `overflow-x: hidden` and `overscroll-behavior-x: none` to html/body |
-| `src/pages/SettingsPage.tsx` | Fix button row overflow, constrain robot cards |
-| `src/pages/Index.tsx` | Add `overflow-x: hidden` to main container |
+This is a single-line className change on the `TabsList` element (line 339).
 

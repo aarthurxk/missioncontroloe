@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
+import { BottomTabBar } from "@/components/BottomTabBar";
 import { useRobots } from "@/hooks/useRobots";
 import { useExecutions } from "@/hooks/useExecutions";
 import { useSchedules, parseCronToDisplay, getNextRunFromCron, getNextRunInfo, buildCronExpression, cronToLocalTime } from "@/hooks/useSchedules";

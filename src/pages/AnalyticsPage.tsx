@@ -201,9 +201,10 @@ const AnalyticsPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-16 md:pb-0">
       <Header runningCount={runningCount} isConnected={true} />
-      <div className="mx-auto w-full max-w-6xl space-y-8 p-6">
+      <BottomTabBar />
+      <div className="mx-auto w-full max-w-6xl space-y-6 md:space-y-8 p-4 md:p-6">
         <h1 className="text-xl font-bold">Analytics</h1>
 
         {/* ── SEÇÃO 1: KPIs ── */}

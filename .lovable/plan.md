@@ -1,17 +1,39 @@
 
 
-## Fix: Settings tabs not scrollable on mobile
+## Fix: Scheduler button + Settings tabs
 
-### Problem
-The `TabsList` in the Settings page contains 4 tabs (Robôs, Usuários, Infraestrutura, Geral) that overflow the screen width on mobile. The container doesn't allow horizontal scrolling, so the last tab ("Geral") is cut off and unreachable.
+### 1. Scheduler — Smaller "Novo Agendamento" button
+**File: `src/pages/SchedulerPage.tsx`** (line ~400)
 
-### Fix
+Change the button from default size to `size="sm"` and shorten the label on mobile:
+```tsx
+<Button onClick={openCreate} size="sm" className="gap-1.5 text-xs">
+  <Plus className="h-3.5 w-3.5" />
+  <span className="hidden sm:inline">Novo Agendamento</span>
+  <span className="sm:hidden">Novo</span>
+</Button>
+```
 
-**`src/pages/SettingsPage.tsx`** — Make the `TabsList` horizontally scrollable on mobile:
-- Add `overflow-x-auto` and `w-full justify-start` to the `TabsList`
-- Add `flex-nowrap` so tabs stay in a single row
-- Add the `scrollbar-hide` class (already defined in `index.css`) to hide the scrollbar while keeping scroll functionality
-- Add `min-w-max` to prevent tabs from shrinking
+Also reduce the stats cards padding and font size for a more compact mobile feel (lines 408-430): smaller `text-xl` instead of `text-2xl`, tighter `p-2`.
 
-This is a single-line className change on the `TabsList` element (line 339).
+### 2. Settings tabs — "Geral" tab fully visible
+**File: `src/pages/SettingsPage.tsx`** (line 339)
+
+The problem: `min-w-max` forces the TabsList to be wider than the screen but it doesn't scroll because the parent has `overflow-x: hidden`. Fix by removing `min-w-max` from the TabsList and instead making each tab shrink gracefully, or wrapping the TabsList in a scrollable container that isn't blocked by the global overflow rule:
+
+```tsx
+<div className="overflow-x-auto no-scrollbar -mx-4 px-4">
+  <TabsList className="bg-muted w-max justify-start">
+    ...
+  </TabsList>
+</div>
+```
+
+This wraps the tabs in a dedicated scroll container with negative margin to bleed edge-to-edge, ensuring all tabs (including "Geral") are reachable by swiping.
+
+### Files
+| File | Change |
+|------|--------|
+| `src/pages/SchedulerPage.tsx` | Smaller button, compact stats cards |
+| `src/pages/SettingsPage.tsx` | Fix tabs scroll container so "Geral" is accessible |
 

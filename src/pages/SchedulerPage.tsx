@@ -421,7 +421,7 @@ const SchedulerPage = () => {
             </Card>
             <Card className="border-border/50">
               <CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-muted-foreground">{schedules.length - activeCount}</p>
+                <p className="text-xl font-bold text-muted-foreground">{schedules.length - activeCount}</p>
                 <p className="text-[11px] text-muted-foreground">Pausados</p>
               </CardContent>
             </Card>

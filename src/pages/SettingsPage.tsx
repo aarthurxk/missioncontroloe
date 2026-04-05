@@ -336,7 +336,7 @@ const SettingsPage = () => {
         <h1 className="text-xl font-bold">Configurações</h1>
 
         <Tabs defaultValue="robots" className="space-y-6">
-          <TabsList className="bg-muted">
+          <TabsList className="bg-muted w-full justify-start overflow-x-auto flex-nowrap no-scrollbar min-w-max">
             <TabsTrigger value="robots" className="gap-2">
               <Bot className="h-4 w-4" /> Robôs
             </TabsTrigger>

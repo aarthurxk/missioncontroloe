@@ -7,11 +7,12 @@ import { cn } from "@/lib/utils";
 import type { Robot, Execution } from "@/lib/types";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Play, Square, Loader2 } from "lucide-react";
+import { Play, Square, Loader2, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AgentsListProps {
   robots: Robot[];
@@ -24,6 +25,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
   const [cooldowns, setCooldowns] = useState<Record<string, boolean>>({});
   const [stopping, setStopping] = useState<Record<string, boolean>>({});
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
 
   const getLatestExecution = (robotId: string) =>
     executions.find((e) => e.robot_id === robotId);
@@ -90,13 +92,13 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
 
   return (
     <div className="flex h-full flex-col md:border-r border-border">
-      <div className="border-b border-border px-3 py-2.5 md:px-4">
+      <div className="border-b border-border px-4 py-2.5">
         <h2 className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
           Agents
         </h2>
       </div>
       <ScrollArea className="flex-1 min-h-0">
-        <div className="space-y-0.5 p-1.5">
+        <div className={cn("space-y-0.5", isMobile ? "p-2" : "p-1.5")}>
           {robots.map((robot) => {
             const latest = getLatestExecution(robot.id);
             const status = getRobotStatus(robot.id);
@@ -109,24 +111,29 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                 key={robot.id}
                 onClick={() => onSelect(robot.id)}
                 className={cn(
-                  "w-full rounded-lg px-2.5 py-2 text-left transition-all cursor-pointer relative flex items-center gap-2 group",
+                  "w-full rounded-xl text-left transition-all cursor-pointer relative flex items-center gap-3 group",
+                  isMobile ? "px-3 py-3" : "px-2.5 py-2",
                   isSelected
                     ? "bg-primary/8 border border-primary/20"
-                    : "hover:bg-accent/50 border border-transparent"
+                    : "hover:bg-accent/50 border border-transparent active:bg-accent/70"
                 )}
               >
                 {/* Selected left accent */}
                 {isSelected && (
-                  <div className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-primary" />
+                  <div className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary" />
                 )}
 
-                {/* Robot icon */}
-                <span className="text-sm shrink-0">{robot.icon ?? "🤖"}</span>
+                {/* Robot icon — larger on mobile */}
+                <span className={cn("shrink-0", isMobile ? "text-xl" : "text-sm")}>
+                  {robot.icon ?? "🤖"}
+                </span>
 
                 {/* Name + status */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-medium truncate">{robot.name}</span>
+                    <span className={cn("font-medium truncate", isMobile ? "text-sm" : "text-xs")}>
+                      {robot.name}
+                    </span>
                     <CategoryBadge category={robot.category} />
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -142,21 +149,24 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                   </div>
                 </div>
 
-                {/* Inline action button */}
+                {/* Action buttons — always visible on mobile */}
                 {isRunning || isCancelling ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer"
+                        className={cn(
+                          "shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10 cursor-pointer",
+                          isMobile ? "h-10 w-10" : "h-7 w-7"
+                        )}
                         disabled={isCancelling || stopping[robot.id]}
                         onClick={(e) => handleStop(e, robot.id)}
                       >
                         {isCancelling || stopping[robot.id] ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className={cn("animate-spin", isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
                         ) : (
-                          <Square className="h-3.5 w-3.5" />
+                          <Square className={cn(isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
                         )}
                       </Button>
                     </TooltipTrigger>
@@ -170,14 +180,19 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
+                        className={cn(
+                          "shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 cursor-pointer transition-all",
+                          isMobile
+                            ? "h-10 w-10 opacity-100 bg-primary/5"
+                            : "h-7 w-7 opacity-0 group-hover:opacity-100"
+                        )}
                         disabled={cooldowns[robot.id]}
                         onClick={(e) => handleRunNow(e, robot.id)}
                       >
                         {cooldowns[robot.id] ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className={cn("animate-spin", isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
                         ) : (
-                          <Play className="h-3.5 w-3.5" />
+                          <Play className={cn(isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
                         )}
                       </Button>
                     </TooltipTrigger>
@@ -185,6 +200,11 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                       {cooldowns[robot.id] ? "Enviado…" : "Executar agora"}
                     </TooltipContent>
                   </Tooltip>
+                )}
+
+                {/* Chevron hint on mobile */}
+                {isMobile && (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                 )}
               </button>
             );

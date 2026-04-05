@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
+import { BottomTabBar } from "@/components/BottomTabBar";
 import { useRobots } from "@/hooks/useRobots";
 import { useExecutions } from "@/hooks/useExecutions";
 import { useSchedules, parseCronToDisplay, getNextRunFromCron, getNextRunInfo, buildCronExpression, cronToLocalTime } from "@/hooks/useSchedules";
@@ -378,8 +379,9 @@ const SchedulerPage = () => {
   }, {});
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background pb-16 md:pb-0">
       <Header runningCount={runningCount} isConnected={true} />
+      <BottomTabBar />
 
       <div className="mx-auto w-full max-w-3xl px-4 py-6 space-y-6">
         {/* Page header */}

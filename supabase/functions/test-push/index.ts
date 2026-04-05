@@ -118,6 +118,9 @@ Deno.serve(async (req) => {
 
     for (const sub of subs) {
       try {
+        console.log(`Sending push to sub ${sub.id}, endpoint: ${sub.endpoint.substring(0, 60)}...`);
+        console.log(`keys_p256dh length: ${sub.keys_p256dh?.length}, keys_auth length: ${sub.keys_auth?.length}`);
+        
         const subscriber = appServer.subscribe({
           endpoint: sub.endpoint,
           keys: {
@@ -126,19 +129,25 @@ Deno.serve(async (req) => {
           },
         });
 
-        // pushTextMessage returns void on success, throws PushMessageError on failure
         await subscriber.pushTextMessage(payload, {
           urgency: "high",
           ttl: 86400,
         });
+        console.log(`Push sent successfully to sub ${sub.id}`);
         sent++;
-      } catch (e) {
-        if (e instanceof webpush.PushMessageError && e.isGone()) {
-          await adminSb.from("push_subscriptions").delete().eq("id", sub.id);
-          removed++;
+      } catch (e: any) {
+        console.error(`Push error for ${sub.id}:`, e?.constructor?.name, e?.message || String(e));
+        if (e?.statusCode) console.error(`Status code: ${e.statusCode}`);
+        if (e instanceof webpush.PushMessageError) {
+          console.error(`PushMessageError statusCode: ${e.statusCode}, isGone: ${e.isGone()}`);
+          if (e.isGone()) {
+            await adminSb.from("push_subscriptions").delete().eq("id", sub.id);
+            removed++;
+          } else {
+            failed++;
+          }
         } else {
           failed++;
-          console.error(`Push error for ${sub.id}:`, e);
         }
       }
     }

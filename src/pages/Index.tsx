@@ -5,10 +5,11 @@ import { AgentsList } from "@/components/AgentsList";
 import { MissionQueue } from "@/components/MissionQueue";
 import { RobotDetailDrawer } from "@/components/RobotDetailDrawer";
 import { ExecutionSummaryModal } from "@/components/ExecutionSummaryModal";
+import { BottomTabBar } from "@/components/BottomTabBar";
 import { useRobots } from "@/hooks/useRobots";
 import { useExecutions } from "@/hooks/useExecutions";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import type { Execution, Robot } from "@/lib/types";
 
 type ExecWithRobot = Execution & { robots: Robot };
@@ -17,6 +18,7 @@ const Index = () => {
   const { data: robots = [] } = useRobots();
   const { data: executions = [] } = useExecutions();
   const [selectedRobotId, setSelectedRobotId] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<"agents" | "missions">("agents");
   const isMobile = useIsMobile();
 
   // Track running executions to detect completion
@@ -28,8 +30,6 @@ const Index = () => {
     for (const exec of executions as ExecWithRobot[]) {
       const prev = prevStatuses.current[exec.id];
       const curr = exec.status;
-
-      // Was running (or pending), now finished
       if (
         (prev === "running" || prev === "cancelling") &&
         (curr === "success" || curr === "error" || curr === "cancelled")
@@ -37,7 +37,6 @@ const Index = () => {
         setSummaryExecution(exec);
         setSummaryRobot(exec.robots ?? null);
       }
-
       prevStatuses.current[exec.id] = curr;
     }
   }, [executions]);
@@ -49,28 +48,55 @@ const Index = () => {
     return (
       <div className="flex h-screen flex-col bg-background">
         <Header runningCount={runningCount} isConnected={true} />
-        <div className="px-3 py-2">
-          <KpiCards robots={robots} executions={executions as any} />
-        </div>
-        <Tabs defaultValue="agents" className="flex flex-1 flex-col min-h-0 overflow-hidden">
-          <div className="px-3">
-            <TabsList className="w-full">
-              <TabsTrigger value="agents" className="flex-1 text-xs">Agents</TabsTrigger>
-              <TabsTrigger value="missions" className="flex-1 text-xs">Missions</TabsTrigger>
-            </TabsList>
+        
+        <KpiCards robots={robots} executions={executions as any} />
+
+        {/* iOS-style segmented control */}
+        <div className="px-4 py-2">
+          <div className="relative flex rounded-xl bg-muted p-1">
+            <div
+              className="absolute top-1 bottom-1 rounded-lg bg-card shadow-sm transition-transform duration-200 ease-out"
+              style={{
+                width: "calc(50% - 4px)",
+                transform: mobileTab === "agents" ? "translateX(0)" : "translateX(calc(100% + 8px))",
+              }}
+            />
+            <button
+              onClick={() => setMobileTab("agents")}
+              className={cn(
+                "relative z-10 flex-1 py-1.5 text-xs font-semibold text-center rounded-lg transition-colors",
+                mobileTab === "agents" ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              Agents
+            </button>
+            <button
+              onClick={() => setMobileTab("missions")}
+              className={cn(
+                "relative z-10 flex-1 py-1.5 text-xs font-semibold text-center rounded-lg transition-colors",
+                mobileTab === "missions" ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              Missions
+            </button>
           </div>
-          <TabsContent value="agents" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-hidden pb-16">
+          {mobileTab === "agents" ? (
             <AgentsList
               robots={robots}
               executions={executions as any}
               selectedId={selectedRobotId}
               onSelect={setSelectedRobotId}
             />
-          </TabsContent>
-          <TabsContent value="missions" className="flex-1 min-h-0 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          ) : (
             <MissionQueue executions={executions as any} />
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
+
+        <BottomTabBar />
+
         <RobotDetailDrawer
           robot={selectedRobot}
           open={!!selectedRobotId}

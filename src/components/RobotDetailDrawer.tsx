@@ -11,6 +11,7 @@ import { ChevronDown, Play, ClipboardCopy, Terminal, History } from "lucide-reac
 import { supabase } from "@/integrations/supabase/client";
 import { useRobotExecutions } from "@/hooks/useExecutions";
 import { useQueryClient } from "@tanstack/react-query";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { Robot } from "@/lib/types";
 import { format, subDays, startOfDay } from "date-fns";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -27,6 +28,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
   const { data: executions = [] } = useRobotExecutions(robot?.id ?? null);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("terminal");
+  const isMobile = useIsMobile();
 
   if (!robot) return null;
 
@@ -57,7 +59,6 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
         )
       : 0;
 
-  // Running or most-recent execution for live terminal
   const runningExec = executions.find((e) => e.status === "running" || e.status === "cancelling");
   const latestExec = executions[0];
   const terminalExec = runningExec ?? latestExec;
@@ -86,9 +87,23 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-[500px] sm:max-w-[500px] overflow-y-auto bg-card border-border flex flex-col gap-0 p-0">
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        className={
+          isMobile
+            ? "h-[85vh] rounded-t-2xl overflow-y-auto bg-card border-border flex flex-col gap-0 p-0 safe-area-bottom"
+            : "w-[500px] sm:max-w-[500px] overflow-y-auto bg-card border-border flex flex-col gap-0 p-0"
+        }
+      >
+        {/* Drag handle on mobile */}
+        {isMobile && (
+          <div className="flex justify-center pt-2 pb-1">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          </div>
+        )}
+
         {/* Header */}
-        <SheetHeader className="px-5 pt-5 pb-4 border-b border-border/50">
+        <SheetHeader className="px-5 pt-3 pb-4 border-b border-border/50">
           <div className="flex items-center gap-3">
             <span className="text-3xl">{robot.icon ?? "🤖"}</span>
             <div className="flex-1 min-w-0">
@@ -102,7 +117,6 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Description */}
           {robot.description && (
             <p className="text-sm text-muted-foreground">{robot.description}</p>
           )}
@@ -111,7 +125,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
           <div className="flex items-center gap-3 flex-wrap">
             <Button
               onClick={handleExecute}
-              className="gap-2"
+              className="gap-2 h-11"
               disabled={!!runningExec}
             >
               <Play className="h-4 w-4" />
@@ -127,37 +141,36 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg bg-muted p-3 text-center">
+            <div className="rounded-xl bg-muted p-3 text-center">
               <p className="text-xl font-bold">{successRate}%</p>
-              <p className="text-[10px] text-muted-foreground">Taxa de Sucesso</p>
+              <p className="text-[10px] text-muted-foreground">Sucesso</p>
             </div>
-            <div className="rounded-lg bg-muted p-3 text-center">
+            <div className="rounded-xl bg-muted p-3 text-center">
               <p className="text-xl font-bold">{totalExecs}</p>
               <p className="text-[10px] text-muted-foreground">Execuções</p>
             </div>
-            <div className="rounded-lg bg-muted p-3 text-center">
+            <div className="rounded-xl bg-muted p-3 text-center">
               <p className="text-xl font-bold font-mono">{Math.floor(avgDuration / 60)}m</p>
               <p className="text-[10px] text-muted-foreground">Tempo Médio</p>
             </div>
           </div>
 
-          {/* Tabs: Terminal | History | Chart */}
+          {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="w-full bg-muted">
-              <TabsTrigger value="terminal" className="flex-1 gap-1.5 text-xs">
+            <TabsList className="w-full bg-muted rounded-xl">
+              <TabsTrigger value="terminal" className="flex-1 gap-1.5 text-xs rounded-lg">
                 <Terminal className="h-3.5 w-3.5" />
                 Terminal
                 {runningExec && (
                   <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse ml-1" />
                 )}
               </TabsTrigger>
-              <TabsTrigger value="history" className="flex-1 gap-1.5 text-xs">
+              <TabsTrigger value="history" className="flex-1 gap-1.5 text-xs rounded-lg">
                 <History className="h-3.5 w-3.5" />
                 Histórico
               </TabsTrigger>
             </TabsList>
 
-            {/* Terminal tab */}
             <TabsContent value="terminal" className="mt-3">
               {terminalExec ? (
                 <LiveTerminal
@@ -169,7 +182,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
                   }}
                 />
               ) : (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                <div className="rounded-xl border border-dashed border-border p-8 text-center">
                   <Terminal className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">Nenhuma execução ainda.</p>
                   <p className="text-xs text-muted-foreground/60 mt-1">
@@ -179,9 +192,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
               )}
             </TabsContent>
 
-            {/* History tab */}
             <TabsContent value="history" className="mt-3 space-y-4">
-              {/* Chart */}
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Últimos 30 dias
@@ -220,7 +231,6 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
                 </div>
               </div>
 
-              {/* Recent executions list */}
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Últimas execuções
@@ -228,7 +238,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
                 <div className="space-y-1">
                   {last10.map((exec) => (
                     <Collapsible key={exec.id}>
-                      <CollapsibleTrigger className="flex w-full items-center gap-3 rounded-lg p-2 text-left hover:bg-accent/50 transition-colors">
+                      <CollapsibleTrigger className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left hover:bg-accent/50 active:bg-accent/70 transition-colors min-h-[44px]">
                         <StatusBadge status={exec.status} />
                         <span className="font-mono text-xs text-muted-foreground flex-1">
                           {format(new Date(exec.started_at), "dd/MM HH:mm")}
@@ -241,7 +251,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
                         <ChevronDown className="h-3 w-3 text-muted-foreground" />
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <div className="ml-2 rounded-lg bg-muted p-3 mt-1">
+                        <div className="ml-2 rounded-xl bg-muted p-3 mt-1">
                           {exec.log_output && (
                             <pre className="font-mono text-[11px] text-muted-foreground whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
                               {exec.log_output}
@@ -256,7 +266,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="mt-2 gap-2 text-xs h-7"
+                              className="mt-2 gap-2 text-xs h-9"
                               onClick={async () => {
                                 await copyErrorToClipboard({
                                   robotName: robot.name,

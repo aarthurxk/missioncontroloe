@@ -409,7 +409,7 @@ const SchedulerPage = () => {
           <div className="grid grid-cols-3 gap-3">
             <Card className="border-border/50">
               <CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold">{schedules.length}</p>
+                <p className="text-xl font-bold">{schedules.length}</p>
                 <p className="text-[11px] text-muted-foreground">Total</p>
               </CardContent>
             </Card>

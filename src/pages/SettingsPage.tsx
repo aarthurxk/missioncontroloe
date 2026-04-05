@@ -358,7 +358,7 @@ const SettingsPage = () => {
           </TabsList>
 
           <TabsContent value="robots" className="space-y-6">
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" className="gap-2" disabled={robots.length === 0}>
@@ -394,7 +394,7 @@ const SettingsPage = () => {
               <CardContent>
                 <div className="space-y-2">
                   {robots.map(robot => (
-                    <div key={robot.id} className="flex items-center gap-3 rounded-lg border p-3">
+                    <div key={robot.id} className="flex items-center gap-3 rounded-lg border p-3 overflow-hidden">
                       <span className="text-xl">{robot.icon}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium">{robot.name}</p>

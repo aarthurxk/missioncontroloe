@@ -357,6 +357,7 @@ const SettingsPage = () => {
               </TabsTrigger>
             )}
           </TabsList>
+          </div>
 
           <TabsContent value="robots" className="space-y-6">
             <div className="flex flex-wrap items-center justify-end gap-2">

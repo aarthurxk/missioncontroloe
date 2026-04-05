@@ -51,6 +51,50 @@ async function buildAppServer(): Promise<webpush.ApplicationServer> {
   });
 }
 
+type SimType = "test" | "success" | "error" | "cancelled" | "bridge_offline" | "bridge_online";
+
+function buildPayload(type: SimType): string {
+  const payloads: Record<SimType, { title: string; body: string; tag: string; url: string }> = {
+    test: {
+      title: "🔔 Teste de Notificação",
+      body: "Se você está vendo isso, push notifications estão funcionando!",
+      tag: "test-push",
+      url: "/settings",
+    },
+    success: {
+      title: "✅ Relatório Mensal",
+      body: "Execução finalizada: success",
+      tag: "exec-sim-success",
+      url: "/",
+    },
+    error: {
+      title: "❌ Backup Diário",
+      body: "Execução finalizada: error",
+      tag: "exec-sim-error",
+      url: "/",
+    },
+    cancelled: {
+      title: "⏹ Sync Agenda",
+      body: "Execução finalizada: cancelled",
+      tag: "exec-sim-cancelled",
+      url: "/",
+    },
+    bridge_offline: {
+      title: "⚠️ Agent Bridge Offline",
+      body: "Sem conexão há 5 minutos. Verifique a VPS.",
+      tag: "bridge-offline",
+      url: "/",
+    },
+    bridge_online: {
+      title: "✅ Agent Bridge Online",
+      body: "Reconectado após 5 minutos offline.",
+      tag: "bridge-online",
+      url: "/",
+    },
+  };
+  return JSON.stringify(payloads[type] || payloads.test);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -75,6 +119,17 @@ Deno.serve(async (req) => {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Parse optional type from body
+    let simType: SimType = "test";
+    try {
+      const body = await req.json();
+      if (body?.type && ["test", "success", "error", "cancelled", "bridge_offline", "bridge_online"].includes(body.type)) {
+        simType = body.type as SimType;
+      }
+    } catch {
+      // no body or invalid json — default to "test"
     }
 
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
@@ -105,12 +160,7 @@ Deno.serve(async (req) => {
     }
 
     const appServer = await buildAppServer();
-    const payload = JSON.stringify({
-      title: "🔔 Teste de Notificação",
-      body: "Se você está vendo isso, push notifications estão funcionando!",
-      tag: "test-push",
-      url: "/settings",
-    });
+    const payload = buildPayload(simType);
 
     let sent = 0;
     let removed = 0;
@@ -118,9 +168,6 @@ Deno.serve(async (req) => {
 
     for (const sub of subs) {
       try {
-        console.log(`Sending push to sub ${sub.id}, endpoint: ${sub.endpoint.substring(0, 60)}...`);
-        console.log(`keys_p256dh length: ${sub.keys_p256dh?.length}, keys_auth length: ${sub.keys_auth?.length}`);
-        
         const subscriber = appServer.subscribe({
           endpoint: sub.endpoint,
           keys: {
@@ -133,27 +180,20 @@ Deno.serve(async (req) => {
           urgency: "high",
           ttl: 86400,
         });
-        console.log(`Push sent successfully to sub ${sub.id}`);
         sent++;
       } catch (e: any) {
-        console.error(`Push error for ${sub.id}:`, e?.constructor?.name, e?.message || String(e));
-        if (e?.statusCode) console.error(`Status code: ${e.statusCode}`);
-        if (e instanceof webpush.PushMessageError) {
-          console.error(`PushMessageError statusCode: ${e.statusCode}, isGone: ${e.isGone()}`);
-          if (e.isGone()) {
-            await adminSb.from("push_subscriptions").delete().eq("id", sub.id);
-            removed++;
-          } else {
-            failed++;
-          }
+        if (e instanceof webpush.PushMessageError && e.isGone()) {
+          await adminSb.from("push_subscriptions").delete().eq("id", sub.id);
+          removed++;
         } else {
           failed++;
+          console.error(`Push error for ${sub.id}:`, e);
         }
       }
     }
 
     return new Response(
-      JSON.stringify({ sent, removed, failed, total: subs.length }),
+      JSON.stringify({ sent, removed, failed, total: subs.length, type: simType }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {

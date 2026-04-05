@@ -128,12 +128,13 @@ export function usePushNotifications() {
     }
   }, [user]);
 
-  const sendTestPush = useCallback(async () => {
+  const sendTestPush = useCallback(async (type?: string) => {
     setLoading(true);
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("test-push", {
         method: "POST",
+        body: { type: type || "test" },
       });
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);

@@ -1,17 +1,32 @@
-import { Bell, BellOff, BellRing, Smartphone, AlertTriangle, XCircle, Send } from "lucide-react";
+import { Bell, BellOff, BellRing, Smartphone, AlertTriangle, XCircle, Send, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const simOptions = [
+  { type: "test", label: "🔔 Teste geral", desc: "Notificação básica de teste" },
+  { type: "success", label: "✅ Robô concluído", desc: "Simula execução com sucesso" },
+  { type: "error", label: "❌ Robô com erro", desc: "Simula execução com falha" },
+  { type: "cancelled", label: "⏹ Robô cancelado", desc: "Simula execução cancelada" },
+  { type: "bridge_offline", label: "⚠️ Bridge offline", desc: "Simula queda do Agent Bridge" },
+  { type: "bridge_online", label: "✅ Bridge online", desc: "Simula reconexão do Bridge" },
+] as const;
 
 export function PushNotificationsCard() {
   const { state, loading, error, subscribe, unsubscribe, sendTestPush } = usePushNotifications();
 
-  const handleTest = async () => {
-    const result = await sendTestPush();
+  const handleTest = async (type?: string) => {
+    const result = await sendTestPush(type);
     if (result?.sent > 0) {
-      toast.success(`Push enviado para ${result.sent} dispositivo(s)!`);
+      toast.success(`Push "${type || "test"}" enviado para ${result.sent} dispositivo(s)!`);
     }
   };
 
@@ -112,10 +127,25 @@ export function PushNotificationsCard() {
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button onClick={handleTest} disabled={loading} size="sm" variant="secondary">
-                <Send className="h-3 w-3 mr-1" />
-                {loading ? "Enviando…" : "Testar"}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={loading} size="sm" variant="secondary">
+                    <Send className="h-3 w-3 mr-1" />
+                    {loading ? "Enviando…" : "Testar"}
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {simOptions.map((opt) => (
+                    <DropdownMenuItem key={opt.type} onClick={() => handleTest(opt.type)}>
+                      <div>
+                        <p className="text-sm">{opt.label}</p>
+                        <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button onClick={unsubscribe} disabled={loading} size="sm" variant="outline">
                 {loading ? "Desativando…" : "Desativar"}
               </Button>

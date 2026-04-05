@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
+import { BottomTabBar } from "@/components/BottomTabBar";
 import { useRoadmap, useRoadmapSteps, useAllRoadmapSteps, type RoadmapItem } from "@/hooks/useRoadmap";
 import { useExecutions } from "@/hooks/useExecutions";
 import { CategoryBadge } from "@/components/CategoryBadge";

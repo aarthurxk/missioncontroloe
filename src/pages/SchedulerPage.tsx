@@ -397,9 +397,10 @@ const SchedulerPage = () => {
                 : `${schedules.length} agendamento${schedules.length !== 1 ? "s" : ""} · ${activeCount} ativo${activeCount !== 1 ? "s" : ""}`}
             </p>
           </div>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo Agendamento
+          <Button onClick={openCreate} size="sm" className="gap-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Novo Agendamento</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
 

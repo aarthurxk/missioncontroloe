@@ -46,7 +46,7 @@ const Index = () => {
 
   if (isMobile) {
     return (
-      <div className="flex h-screen flex-col bg-background">
+      <div className="flex h-screen flex-col bg-background overflow-x-hidden">
         <Header runningCount={runningCount} isConnected={true} />
         
         <KpiCards robots={robots} executions={executions as any} />

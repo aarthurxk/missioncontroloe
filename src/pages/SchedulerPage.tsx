@@ -397,9 +397,10 @@ const SchedulerPage = () => {
                 : `${schedules.length} agendamento${schedules.length !== 1 ? "s" : ""} · ${activeCount} ativo${activeCount !== 1 ? "s" : ""}`}
             </p>
           </div>
-          <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo Agendamento
+          <Button onClick={openCreate} size="sm" className="gap-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Novo Agendamento</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
 
@@ -408,19 +409,19 @@ const SchedulerPage = () => {
           <div className="grid grid-cols-3 gap-3">
             <Card className="border-border/50">
               <CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold">{schedules.length}</p>
+                <p className="text-xl font-bold">{schedules.length}</p>
                 <p className="text-[11px] text-muted-foreground">Total</p>
               </CardContent>
             </Card>
             <Card className="border-border/50">
               <CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-green-400">{activeCount}</p>
+                <p className="text-xl font-bold text-green-400">{activeCount}</p>
                 <p className="text-[11px] text-muted-foreground">Ativos</p>
               </CardContent>
             </Card>
             <Card className="border-border/50">
               <CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-muted-foreground">{schedules.length - activeCount}</p>
+                <p className="text-xl font-bold text-muted-foreground">{schedules.length - activeCount}</p>
                 <p className="text-[11px] text-muted-foreground">Pausados</p>
               </CardContent>
             </Card>

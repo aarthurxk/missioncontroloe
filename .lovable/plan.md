@@ -1,39 +1,45 @@
 
 
-## Fix: Scheduler button + Settings tabs
+## Plano: Push Notifications disparadas pelo banco de dados (sem depender do Agent Bridge)
 
-### 1. Scheduler — Smaller "Novo Agendamento" button
-**File: `src/pages/SchedulerPage.tsx`** (line ~400)
+### Problema atual
+Hoje, as notificações push só são enviadas quando o `agent_bridge.py` chama a Edge Function `web-push` após finalizar uma execução. Se o secret não estiver configurado na VPS ou o bridge falhar, nenhuma notificação chega.
 
-Change the button from default size to `size="sm"` and shorten the label on mobile:
-```tsx
-<Button onClick={openCreate} size="sm" className="gap-1.5 text-xs">
-  <Plus className="h-3.5 w-3.5" />
-  <span className="hidden sm:inline">Novo Agendamento</span>
-  <span className="sm:hidden">Novo</span>
-</Button>
+### Solução
+Criar um **Database Webhook** (Supabase) que dispara automaticamente a Edge Function `web-push` sempre que uma execução muda para um estado terminal (`success`, `error`, `cancelled`). Assim, a notificação é acionada diretamente pelo banco de dados, independente do Agent Bridge.
+
+### Como funciona
+
+```text
+Robô finaliza → agent_bridge atualiza status no banco
+                         ↓
+              Database Webhook (trigger on UPDATE)
+                         ↓
+              Edge Function "web-push" é chamada
+                         ↓
+              Push chega no celular
 ```
 
-Also reduce the stats cards padding and font size for a more compact mobile feel (lines 408-430): smaller `text-xl` instead of `text-2xl`, tighter `p-2`.
+### Passos de implementação
 
-### 2. Settings tabs — "Geral" tab fully visible
-**File: `src/pages/SettingsPage.tsx`** (line 339)
+1. **Criar uma nova Edge Function `notify-execution-complete`**
+   - Recebe o payload do webhook do Supabase (com o registro antigo e novo da tabela `executions`)
+   - Verifica se o status mudou para `success`, `error` ou `cancelled`
+   - Busca o nome do robô na tabela `robots`
+   - Chama a mesma lógica de envio de push já existente em `web-push` (ou reutiliza internamente)
+   - Autenticação via `service_role` (webhook interno, sem necessidade de shared secret)
 
-The problem: `min-w-max` forces the TabsList to be wider than the screen but it doesn't scroll because the parent has `overflow-x: hidden`. Fix by removing `min-w-max` from the TabsList and instead making each tab shrink gracefully, or wrapping the TabsList in a scrollable container that isn't blocked by the global overflow rule:
+2. **Criar Database Webhook via migração SQL**
+   - Webhook na tabela `executions` para eventos `UPDATE`
+   - Aponta para a nova Edge Function
+   - Usa o `service_role_key` para autenticação
 
-```tsx
-<div className="overflow-x-auto no-scrollbar -mx-4 px-4">
-  <TabsList className="bg-muted w-max justify-start">
-    ...
-  </TabsList>
-</div>
-```
+3. **Manter compatibilidade**
+   - O `agent_bridge.py` continua funcionando normalmente (pode até remover a chamada de push dele no futuro)
+   - As duas fontes de notificação não vão duplicar porque o push usa `tag` com o `execution_id` — o navegador deduplica automaticamente notificações com mesmo tag
 
-This wraps the tabs in a dedicated scroll container with negative margin to bleed edge-to-edge, ensuring all tabs (including "Geral") are reachable by swiping.
-
-### Files
-| File | Change |
-|------|--------|
-| `src/pages/SchedulerPage.tsx` | Smaller button, compact stats cards |
-| `src/pages/SettingsPage.tsx` | Fix tabs scroll container so "Geral" is accessible |
+### Benefícios
+- Notificações funcionam mesmo que o Agent Bridge não tenha o `MISSION_CONTROL_PUSH_SECRET`
+- Mais confiável — acionado diretamente pelo banco
+- Zero configuração extra na VPS
 

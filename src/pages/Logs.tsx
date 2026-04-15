@@ -114,7 +114,13 @@ const Logs = () => {
                         <TableCell className="font-mono text-xs">
                           {exec.duration_seconds ? `${Math.floor(exec.duration_seconds / 60)}m ${exec.duration_seconds % 60}s` : '—'}
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{exec.triggered_by}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {exec.triggered_by_user_name
+                            ? `por ${exec.triggered_by_user_name}`
+                            : exec.triggered_by === "schedule"
+                            ? "⏰ Agendado"
+                            : exec.triggered_by}
+                        </TableCell>
                         <TableCell><ChevronDown className="h-4 w-4 text-muted-foreground" /></TableCell>
                       </TableRow>
                     </CollapsibleTrigger>

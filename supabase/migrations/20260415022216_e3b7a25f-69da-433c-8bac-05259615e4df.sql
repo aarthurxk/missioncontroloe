@@ -1,0 +1,1 @@
+ALTER TABLE public.executions ADD COLUMN triggered_by_user_id uuid;

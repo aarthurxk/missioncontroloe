@@ -9,6 +9,7 @@ import { LiveTerminal } from "./LiveTerminal";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, Play, ClipboardCopy, Terminal, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRobotExecutions } from "@/hooks/useExecutions";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -28,6 +29,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
   const { data: executions = [] } = useRobotExecutions(robot?.id ?? null);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("terminal");
+  const { user } = useAuth();
   const isMobile = useIsMobile();
 
   if (!robot) return null;
@@ -69,6 +71,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
       robot_id: robot.id,
       status: "pending",
       triggered_by: "manual",
+      triggered_by_user_id: user?.id ?? null,
     });
     if (error) {
       toast.error("Erro ao iniciar execução");

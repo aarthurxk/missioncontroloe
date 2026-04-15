@@ -101,6 +101,7 @@ export type Database = {
           started_at: string
           status: string
           triggered_by: string
+          triggered_by_user_id: string | null
         }
         Insert: {
           duration_seconds?: number | null
@@ -113,6 +114,7 @@ export type Database = {
           started_at?: string
           status?: string
           triggered_by?: string
+          triggered_by_user_id?: string | null
         }
         Update: {
           duration_seconds?: number | null
@@ -125,6 +127,7 @@ export type Database = {
           started_at?: string
           status?: string
           triggered_by?: string
+          triggered_by_user_id?: string | null
         }
         Relationships: [
           {

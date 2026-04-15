@@ -9,6 +9,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Play, Square, Loader2, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,6 +27,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
   const [stopping, setStopping] = useState<Record<string, boolean>>({});
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
   const getLatestExecution = (robotId: string) =>
     executions.find((e) => e.robot_id === robotId);
@@ -50,6 +52,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
         robot_id: robotId,
         status: "pending",
         triggered_by: "dashboard",
+        triggered_by_user_id: user?.id ?? null,
       });
 
       if (error) {

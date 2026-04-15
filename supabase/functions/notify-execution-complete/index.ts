@@ -79,6 +79,8 @@ Deno.serve(async (req) => {
 
     const executionId = record.id;
     const robotId = record.robot_id;
+    const triggeredByUserId = record.triggered_by_user_id;
+    const triggeredBy = record.triggered_by;
 
     // Check VAPID keys
     const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY");
@@ -97,6 +99,15 @@ Deno.serve(async (req) => {
     // Fetch robot name
     const { data: robot } = await sb.from("robots").select("name").eq("id", robotId).single();
     const robotName = robot?.name || "Robô desconhecido";
+
+    // Fetch trigger user name if available
+    let triggerLabel = "Agendamento";
+    if (triggeredByUserId) {
+      const { data: profile } = await sb.from("profiles").select("name").eq("id", triggeredByUserId).single();
+      triggerLabel = profile?.name ? `por ${profile.name}` : "Manual";
+    } else if (triggeredBy === "dashboard" || triggeredBy === "manual") {
+      triggerLabel = "Manual";
+    }
 
     // Fetch all subscriptions, deduplicate per user
     const { data: allSubs } = await sb
@@ -133,7 +144,7 @@ Deno.serve(async (req) => {
     const emoji = statusEmoji[newStatus] || "ℹ️";
     const payload = JSON.stringify({
       title: `${emoji} ${robotName}`,
-      body: `Execução finalizada: ${newStatus}`,
+      body: `${triggerLabel} • ${newStatus}`,
       tag: `exec-${executionId}`,
       url: "/",
     });

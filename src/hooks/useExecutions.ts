@@ -23,7 +23,30 @@ export function useExecutions() {
         .select("*, robots(*)")
         .order("started_at", { ascending: false });
       if (error) throw error;
-      return data;
+
+      // Fetch profile names for executions triggered by users
+      const userIds = [...new Set(
+        data
+          .map((e: any) => e.triggered_by_user_id)
+          .filter(Boolean)
+      )];
+      let profileMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, name")
+          .in("id", userIds);
+        if (profiles) {
+          profileMap = Object.fromEntries(profiles.map((p) => [p.id, p.name]));
+        }
+      }
+
+      return data.map((e: any) => ({
+        ...e,
+        triggered_by_user_name: e.triggered_by_user_id
+          ? profileMap[e.triggered_by_user_id] || null
+          : null,
+      }));
     },
   });
 }

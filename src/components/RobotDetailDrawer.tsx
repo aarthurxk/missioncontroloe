@@ -9,6 +9,7 @@ import { LiveTerminal } from "./LiveTerminal";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown, Play, ClipboardCopy, Terminal, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRobotExecutions } from "@/hooks/useExecutions";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";

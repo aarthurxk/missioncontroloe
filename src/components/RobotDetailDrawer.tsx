@@ -29,6 +29,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
   const { data: executions = [] } = useRobotExecutions(robot?.id ?? null);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("terminal");
+  const { user } = useAuth();
   const isMobile = useIsMobile();
 
   if (!robot) return null;
@@ -70,6 +71,7 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
       robot_id: robot.id,
       status: "pending",
       triggered_by: "manual",
+      triggered_by_user_id: user?.id ?? null,
     });
     if (error) {
       toast.error("Erro ao iniciar execução");

@@ -27,6 +27,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
   const [stopping, setStopping] = useState<Record<string, boolean>>({});
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { user } = useAuth();
 
   const getLatestExecution = (robotId: string) =>
     executions.find((e) => e.robot_id === robotId);
@@ -51,6 +52,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
         robot_id: robotId,
         status: "pending",
         triggered_by: "dashboard",
+        triggered_by_user_id: user?.id ?? null,
       });
 
       if (error) {

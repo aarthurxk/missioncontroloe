@@ -73,6 +73,13 @@ export function ExecutionSummaryModal({ open, onClose, execution, robot }: Execu
                 Duração: <span className="font-mono font-medium">{formatDuration(duration)}</span>
               </p>
             )}
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {execution.triggered_by_user_name
+                ? `Rodado por ${execution.triggered_by_user_name}`
+                : execution.triggered_by === "schedule"
+                ? "⏰ Agendamento"
+                : `Disparado: ${execution.triggered_by}`}
+            </p>
           </div>
         </div>
 

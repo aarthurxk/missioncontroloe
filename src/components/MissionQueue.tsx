@@ -97,7 +97,16 @@ function ExecutionCard({ exec }: { exec: ExecWithRobot }) {
       <div className="flex items-center gap-1.5 px-2.5 py-1.5 min-w-0 overflow-hidden">
         <span className="text-sm shrink-0">{exec.robots?.icon ?? "🤖"}</span>
 
-        <span className="text-xs font-medium truncate flex-1 min-w-0">{exec.robots?.name}</span>
+        <div className="flex flex-col flex-1 min-w-0">
+          <span className="text-xs font-medium truncate">{exec.robots?.name}</span>
+          <span className="text-[9px] text-muted-foreground truncate">
+            {(exec as any).triggered_by_user_name
+              ? `por ${(exec as any).triggered_by_user_name}`
+              : exec.triggered_by === "schedule"
+              ? "⏰ Agendado"
+              : exec.triggered_by}
+          </span>
+        </div>
 
         {/* Time / duration */}
         <span className="font-mono text-[10px] text-muted-foreground shrink-0 hidden sm:inline">

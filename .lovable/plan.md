@@ -1,45 +1,38 @@
 
 
-## Plano: Push Notifications disparadas pelo banco de dados (sem depender do Agent Bridge)
+## Plano: Mostrar quem disparou a execução (usuário ou agendamento) — incluindo no Push
 
-### Problema atual
-Hoje, as notificações push só são enviadas quando o `agent_bridge.py` chama a Edge Function `web-push` após finalizar uma execução. Se o secret não estiver configurado na VPS ou o bridge falhar, nenhuma notificação chega.
+### Situação atual
+- A tabela `executions` já tem `triggered_by` (`manual`, `dashboard`, `schedule`) mas **não guarda qual usuário** disparou.
+- O push notification só mostra `"Execução finalizada: success"` — sem informação de quem rodou.
 
-### Solução
-Criar um **Database Webhook** (Supabase) que dispara automaticamente a Edge Function `web-push` sempre que uma execução muda para um estado terminal (`success`, `error`, `cancelled`). Assim, a notificação é acionada diretamente pelo banco de dados, independente do Agent Bridge.
+### Alterações
 
-### Como funciona
+**1. Adicionar coluna `triggered_by_user_id` na tabela `executions`**
+- Nova coluna `triggered_by_user_id UUID` (nullable) para guardar o ID do usuário que disparou manualmente.
+- Execuções por agendamento ficam com `NULL`.
 
-```text
-Robô finaliza → agent_bridge atualiza status no banco
-                         ↓
-              Database Webhook (trigger on UPDATE)
-                         ↓
-              Edge Function "web-push" é chamada
-                         ↓
-              Push chega no celular
-```
+**2. Salvar o user_id ao disparar execução no frontend**
+- `AgentsList.tsx` (handleRunNow) e `RobotDetailDrawer.tsx` (handleExecute): incluir `triggered_by_user_id: user.id` no insert.
 
-### Passos de implementação
+**3. Atualizar a Edge Function `notify-execution-complete`**
+- Buscar o nome do usuário na tabela `profiles` usando `record.triggered_by_user_id`.
+- Alterar o body do push para incluir a origem:
+  - Manual: `"Rodado por João • status"` 
+  - Agendamento: `"Agendamento • status"`
 
-1. **Criar uma nova Edge Function `notify-execution-complete`**
-   - Recebe o payload do webhook do Supabase (com o registro antigo e novo da tabela `executions`)
-   - Verifica se o status mudou para `success`, `error` ou `cancelled`
-   - Busca o nome do robô na tabela `robots`
-   - Chama a mesma lógica de envio de push já existente em `web-push` (ou reutiliza internamente)
-   - Autenticação via `service_role` (webhook interno, sem necessidade de shared secret)
+**4. Mostrar na UI (MissionQueue, Logs, ExecutionSummaryModal)**
+- Exibir "por Fulano" ou "⏰ Agendado" junto ao card de execução.
 
-2. **Criar Database Webhook via migração SQL**
-   - Webhook na tabela `executions` para eventos `UPDATE`
-   - Aponta para a nova Edge Function
-   - Usa o `service_role_key` para autenticação
+### Detalhes técnicos
 
-3. **Manter compatibilidade**
-   - O `agent_bridge.py` continua funcionando normalmente (pode até remover a chamada de push dele no futuro)
-   - As duas fontes de notificação não vão duplicar porque o push usa `tag` com o `execution_id` — o navegador deduplica automaticamente notificações com mesmo tag
-
-### Benefícios
-- Notificações funcionam mesmo que o Agent Bridge não tenha o `MISSION_CONTROL_PUSH_SECRET`
-- Mais confiável — acionado diretamente pelo banco
-- Zero configuração extra na VPS
+| Arquivo | Mudança |
+|---------|---------|
+| Migração SQL | `ALTER TABLE executions ADD COLUMN triggered_by_user_id uuid` |
+| `AgentsList.tsx` | Adicionar `triggered_by_user_id` no insert |
+| `RobotDetailDrawer.tsx` | Adicionar `triggered_by_user_id` no insert |
+| `notify-execution-complete/index.ts` | Buscar profile name, incluir no payload do push |
+| `MissionQueue.tsx` | Mostrar quem disparou em cada card |
+| `Logs.tsx` | Mostrar quem disparou na tabela |
+| `ExecutionSummaryModal.tsx` | Mostrar quem disparou no modal |
 

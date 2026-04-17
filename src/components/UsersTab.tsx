@@ -87,6 +87,32 @@ export function UsersTab() {
     setInviting(false);
   };
 
+  const openChangePassword = (email: string, name: string) => {
+    setPwdTargetEmail(email);
+    setPwdTargetName(name);
+    setNewPassword("");
+    setPwdDialogOpen(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error("Senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+    setChangingPwd(true);
+    const { data, error } = await supabase.functions.invoke("manage-users", {
+      body: { action: "change_password", email: pwdTargetEmail, password: newPassword },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || "Erro ao alterar senha");
+    } else {
+      toast.success(`Senha de ${pwdTargetName || pwdTargetEmail} alterada`);
+      setPwdDialogOpen(false);
+      setNewPassword("");
+    }
+    setChangingPwd(false);
+  };
+
   const handleDelete = async (userId: string) => {
     const { data, error } = await supabase.functions.invoke("manage-users", {
       body: { action: "delete", user_id: userId },

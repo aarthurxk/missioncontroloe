@@ -187,6 +187,14 @@ export function UsersTab() {
                 <Badge variant={u.role === "admin" ? "default" : "secondary"} className="shrink-0">
                   {u.role}
                 </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openChangePassword(u.email, u.name)}
+                  title="Alterar senha"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
                 {u.id !== currentUser?.id && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -213,6 +221,34 @@ export function UsersTab() {
           </div>
         )}
       </CardContent>
+
+      {/* Change password dialog */}
+      <Dialog open={pwdDialogOpen} onOpenChange={setPwdDialogOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Alterar senha</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Definir nova senha para <span className="font-medium text-foreground">{pwdTargetName || pwdTargetEmail}</span>
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nova senha</label>
+              <Input
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="bg-background"
+                autoFocus
+              />
+            </div>
+            <Button onClick={handleChangePassword} className="w-full" disabled={changingPwd}>
+              {changingPwd ? "Alterando…" : "Alterar senha"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

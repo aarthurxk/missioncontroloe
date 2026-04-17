@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2 } from "lucide-react";
+import { UserPlus, Trash2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserEntry {
@@ -38,6 +38,13 @@ export function UsersTab() {
   const [invName, setInvName] = useState("");
   const [invRole, setInvRole] = useState<string>("viewer");
   const [inviting, setInviting] = useState(false);
+
+  // change password
+  const [pwdDialogOpen, setPwdDialogOpen] = useState(false);
+  const [pwdTargetEmail, setPwdTargetEmail] = useState("");
+  const [pwdTargetName, setPwdTargetName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPwd, setChangingPwd] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -78,6 +85,32 @@ export function UsersTab() {
       fetchUsers();
     }
     setInviting(false);
+  };
+
+  const openChangePassword = (email: string, name: string) => {
+    setPwdTargetEmail(email);
+    setPwdTargetName(name);
+    setNewPassword("");
+    setPwdDialogOpen(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error("Senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+    setChangingPwd(true);
+    const { data, error } = await supabase.functions.invoke("manage-users", {
+      body: { action: "change_password", email: pwdTargetEmail, password: newPassword },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || "Erro ao alterar senha");
+    } else {
+      toast.success(`Senha de ${pwdTargetName || pwdTargetEmail} alterada`);
+      setPwdDialogOpen(false);
+      setNewPassword("");
+    }
+    setChangingPwd(false);
   };
 
   const handleDelete = async (userId: string) => {
@@ -154,6 +187,14 @@ export function UsersTab() {
                 <Badge variant={u.role === "admin" ? "default" : "secondary"} className="shrink-0">
                   {u.role}
                 </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => openChangePassword(u.email, u.name)}
+                  title="Alterar senha"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
                 {u.id !== currentUser?.id && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -180,6 +221,34 @@ export function UsersTab() {
           </div>
         )}
       </CardContent>
+
+      {/* Change password dialog */}
+      <Dialog open={pwdDialogOpen} onOpenChange={setPwdDialogOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Alterar senha</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Definir nova senha para <span className="font-medium text-foreground">{pwdTargetName || pwdTargetEmail}</span>
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nova senha</label>
+              <Input
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="bg-background"
+                autoFocus
+              />
+            </div>
+            <Button onClick={handleChangePassword} className="w-full" disabled={changingPwd}>
+              {changingPwd ? "Alterando…" : "Alterar senha"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

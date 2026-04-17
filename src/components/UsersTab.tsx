@@ -14,7 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Trash2 } from "lucide-react";
+import { UserPlus, Trash2, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 interface UserEntry {

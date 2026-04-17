@@ -39,6 +39,13 @@ export function UsersTab() {
   const [invRole, setInvRole] = useState<string>("viewer");
   const [inviting, setInviting] = useState(false);
 
+  // change password
+  const [pwdDialogOpen, setPwdDialogOpen] = useState(false);
+  const [pwdTargetEmail, setPwdTargetEmail] = useState("");
+  const [pwdTargetName, setPwdTargetName] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPwd, setChangingPwd] = useState(false);
+
   const fetchUsers = async () => {
     setLoading(true);
     const { data, error } = await supabase.functions.invoke("manage-users", {

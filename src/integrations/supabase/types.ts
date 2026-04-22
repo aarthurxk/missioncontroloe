@@ -300,6 +300,7 @@ export type Database = {
           is_active: boolean
           next_run_at: string | null
           robot_id: string
+          run_on_holidays: boolean
         }
         Insert: {
           created_at?: string
@@ -309,6 +310,7 @@ export type Database = {
           is_active?: boolean
           next_run_at?: string | null
           robot_id: string
+          run_on_holidays?: boolean
         }
         Update: {
           created_at?: string
@@ -318,6 +320,7 @@ export type Database = {
           is_active?: boolean
           next_run_at?: string | null
           robot_id?: string
+          run_on_holidays?: boolean
         }
         Relationships: [
           {

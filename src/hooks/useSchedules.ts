@@ -67,12 +67,12 @@ export interface NextRunInfo {
   skippedHoliday?: { date: Date; name: string };
 }
 
-// Calculate next run from cron, skipping holidays
-export function getNextRunFromCron(cron: string | null): Date | null {
-  return getNextRunInfo(cron).nextRun;
+// Calculate next run from cron, skipping holidays (unless runOnHolidays is true)
+export function getNextRunFromCron(cron: string | null, runOnHolidays = false): Date | null {
+  return getNextRunInfo(cron, runOnHolidays).nextRun;
 }
 
-export function getNextRunInfo(cron: string | null): NextRunInfo {
+export function getNextRunInfo(cron: string | null, runOnHolidays = false): NextRunInfo {
   if (!cron) return { nextRun: null };
   const parts = cron.trim().split(/\s+/);
   if (parts.length < 5) return { nextRun: null };
@@ -101,13 +101,15 @@ export function getNextRunInfo(cron: string | null): NextRunInfo {
     // Check day of week
     if (!daysOfWeek.includes(recifeLocal.getDay())) continue;
 
-    // Check holidays
-    const holidayCheck = isHoliday(recifeLocal);
-    if (holidayCheck.holiday) {
-      if (!skippedHoliday) {
-        skippedHoliday = { date: recifeLocal, name: holidayCheck.name! };
+    // Check holidays (only if runOnHolidays is false)
+    if (!runOnHolidays) {
+      const holidayCheck = isHoliday(recifeLocal);
+      if (holidayCheck.holiday) {
+        if (!skippedHoliday) {
+          skippedHoliday = { date: recifeLocal, name: holidayCheck.name! };
+        }
+        continue; // skip this day
       }
-      continue; // skip this day
     }
 
     return { nextRun: candidate, skippedHoliday };

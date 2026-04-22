@@ -202,6 +202,24 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
         />
       </div>
 
+      {/* Run on holidays */}
+      <label className="flex items-start gap-2.5 rounded-lg border border-border/60 bg-muted/30 p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+        <Checkbox
+          checked={runOnHolidays}
+          onCheckedChange={(v) => setRunOnHolidays(v === true)}
+          className="mt-0.5"
+        />
+        <div className="flex-1 space-y-0.5">
+          <p className="text-sm font-medium flex items-center gap-1.5">
+            <PartyPopper className="h-3.5 w-3.5 text-primary" />
+            Rodar em feriados
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Por padrão, agendamentos pulam feriados. Marque para executar normalmente nesses dias.
+          </p>
+        </div>
+      </label>
+
       {/* Preview */}
       {selectedDays.length > 0 && (
         <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-1.5">
@@ -254,7 +272,7 @@ function ScheduleCard({
     setToggling(false);
   };
 
-  const runInfo = getNextRunInfo(schedule.cron_expression);
+  const runInfo = getNextRunInfo(schedule.cron_expression, schedule.run_on_holidays ?? false);
   const nextRun = runInfo.nextRun;
 
   const isOverdue = nextRun && nextRun < new Date();

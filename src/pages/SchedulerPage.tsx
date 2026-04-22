@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +60,7 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
   const [robotId, setRobotId] = useState(schedule?.robot_id ?? "");
   const [selectedDays, setSelectedDays] = useState<number[]>(parsedDays());
   const [time, setTime] = useState(parsedTime());
+  const [runOnHolidays, setRunOnHolidays] = useState<boolean>(schedule?.run_on_holidays ?? false);
   const [saving, setSaving] = useState(false);
 
   const toggleDay = (day: number) => {
@@ -68,7 +70,7 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
   };
 
   const cronExpression = buildCronExpression(selectedDays, time);
-  const runInfo = getNextRunInfo(cronExpression);
+  const runInfo = getNextRunInfo(cronExpression, runOnHolidays);
   const nextRun = runInfo.nextRun;
   const displayLabel = parseCronToDisplay(cronExpression);
 
@@ -92,6 +94,7 @@ function ScheduleForm({ schedule, onDone }: ScheduleFormProps) {
       frequency,
       next_run_at: nextRun?.toISOString() ?? null,
       is_active: schedule?.is_active ?? true,
+      run_on_holidays: runOnHolidays,
     };
 
     let error;
@@ -278,6 +281,12 @@ function ScheduleCard({
               >
                 {schedule.is_active ? "● ativo" : "○ pausado"}
               </Badge>
+              {schedule.run_on_holidays && (
+                <Badge variant="outline" className="text-[10px] border-primary/30 text-primary bg-primary/10 gap-1">
+                  <PartyPopper className="h-2.5 w-2.5" />
+                  inclui feriados
+                </Badge>
+              )}
             </div>
 
             <div className="mt-1 flex items-center gap-1.5 text-sm font-medium">

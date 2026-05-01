@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Fetch active schedules whose next_run_at is due
     const { data: schedules, error: fetchErr } = await supabase
       .from("schedules")
-      .select("id, robot_id, cron_expression, next_run_at, is_active")
+      .select("id, robot_id, cron_expression, next_run_at, is_active, run_on_holidays")
       .eq("is_active", true)
       .not("next_run_at", "is", null)
       .lte("next_run_at", now.toISOString());

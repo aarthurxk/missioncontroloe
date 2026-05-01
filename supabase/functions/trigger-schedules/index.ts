@@ -125,9 +125,11 @@ function computeNextRun(cron: string | null, after: Date, runOnHolidays = false)
     const localDate = new Date(local.year, local.month, local.day);
     if (!daysOfWeek.includes(localDate.getDay())) continue;
 
-    // Check holiday
-    const hCheck = isHoliday(local.year, local.month, local.day);
-    if (hCheck.holiday) continue;
+    // Check holiday (skip only if runOnHolidays is false)
+    if (!runOnHolidays) {
+      const hCheck = isHoliday(local.year, local.month, local.day);
+      if (hCheck.holiday) continue;
+    }
 
     return candidate;
   }

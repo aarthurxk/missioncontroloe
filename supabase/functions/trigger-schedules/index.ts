@@ -41,13 +41,14 @@ Deno.serve(async (req) => {
       // Check if the scheduled time falls on a holiday (Recife local time)
       const local = toRecifeLocal(nextRunAt);
       const holidayCheck = isHoliday(local.year, local.month, local.day);
+      const runOnHolidays = (schedule as any).run_on_holidays === true;
 
-      if (holidayCheck.holiday) {
+      if (holidayCheck.holiday && !runOnHolidays) {
         // Skip — don't trigger, just advance to next valid run
         console.log(
           `Skipping schedule ${schedule.id} — ${holidayCheck.name} (${local.year}-${local.month + 1}-${local.day})`
         );
-        const nextRun = computeNextRun(schedule.cron_expression, now);
+        const nextRun = computeNextRun(schedule.cron_expression, now, runOnHolidays);
         await supabase
           .from("schedules")
           .update({ next_run_at: nextRun ? nextRun.toISOString() : null })
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
       }
 
       // Advance next_run_at
-      const nextRun = computeNextRun(schedule.cron_expression, now);
+      const nextRun = computeNextRun(schedule.cron_expression, now, runOnHolidays);
       await supabase
         .from("schedules")
         .update({ next_run_at: nextRun ? nextRun.toISOString() : null })

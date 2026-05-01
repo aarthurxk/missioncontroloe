@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     // Fetch active schedules whose next_run_at is due
     const { data: schedules, error: fetchErr } = await supabase
       .from("schedules")
-      .select("id, robot_id, cron_expression, next_run_at, is_active")
+      .select("id, robot_id, cron_expression, next_run_at, is_active, run_on_holidays")
       .eq("is_active", true)
       .not("next_run_at", "is", null)
       .lte("next_run_at", now.toISOString());
@@ -41,13 +41,14 @@ Deno.serve(async (req) => {
       // Check if the scheduled time falls on a holiday (Recife local time)
       const local = toRecifeLocal(nextRunAt);
       const holidayCheck = isHoliday(local.year, local.month, local.day);
+      const runOnHolidays = (schedule as any).run_on_holidays === true;
 
-      if (holidayCheck.holiday) {
+      if (holidayCheck.holiday && !runOnHolidays) {
         // Skip — don't trigger, just advance to next valid run
         console.log(
           `Skipping schedule ${schedule.id} — ${holidayCheck.name} (${local.year}-${local.month + 1}-${local.day})`
         );
-        const nextRun = computeNextRun(schedule.cron_expression, now);
+        const nextRun = computeNextRun(schedule.cron_expression, now, runOnHolidays);
         await supabase
           .from("schedules")
           .update({ next_run_at: nextRun ? nextRun.toISOString() : null })
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
       }
 
       // Advance next_run_at
-      const nextRun = computeNextRun(schedule.cron_expression, now);
+      const nextRun = computeNextRun(schedule.cron_expression, now, runOnHolidays);
       await supabase
         .from("schedules")
         .update({ next_run_at: nextRun ? nextRun.toISOString() : null })
@@ -95,7 +96,7 @@ Deno.serve(async (req) => {
  * Compute next valid run date from a cron expression, skipping holidays.
  * Cron is in Recife local time. Returns UTC Date.
  */
-function computeNextRun(cron: string | null, after: Date): Date | null {
+function computeNextRun(cron: string | null, after: Date, runOnHolidays = false): Date | null {
   if (!cron) return null;
   const parts = cron.trim().split(/\s+/);
   if (parts.length < 5) return null;
@@ -124,9 +125,11 @@ function computeNextRun(cron: string | null, after: Date): Date | null {
     const localDate = new Date(local.year, local.month, local.day);
     if (!daysOfWeek.includes(localDate.getDay())) continue;
 
-    // Check holiday
-    const hCheck = isHoliday(local.year, local.month, local.day);
-    if (hCheck.holiday) continue;
+    // Check holiday (skip only if runOnHolidays is false)
+    if (!runOnHolidays) {
+      const hCheck = isHoliday(local.year, local.month, local.day);
+      if (hCheck.holiday) continue;
+    }
 
     return candidate;
   }

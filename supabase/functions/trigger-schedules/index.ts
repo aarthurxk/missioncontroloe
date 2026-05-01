@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
  * Compute next valid run date from a cron expression, skipping holidays.
  * Cron is in Recife local time. Returns UTC Date.
  */
-function computeNextRun(cron: string | null, after: Date): Date | null {
+function computeNextRun(cron: string | null, after: Date, runOnHolidays = false): Date | null {
   if (!cron) return null;
   const parts = cron.trim().split(/\s+/);
   if (parts.length < 5) return null;

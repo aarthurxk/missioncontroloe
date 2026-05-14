@@ -1,11 +1,14 @@
 import { useState, useCallback } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StatusBadge } from "./StatusBadge";
 import { CategoryBadge } from "./CategoryBadge";
 import { cn } from "@/lib/utils";
 import type { Robot, Execution } from "@/lib/types";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Play, Square, Loader2, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +28,10 @@ interface AgentsListProps {
 export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsListProps) {
   const [cooldowns, setCooldowns] = useState<Record<string, boolean>>({});
   const [stopping, setStopping] = useState<Record<string, boolean>>({});
+  const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
+  const [periodRobotId, setPeriodRobotId] = useState<string | null>(null);
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { user } = useAuth();
@@ -43,29 +50,63 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
     return latest.status;
   };
 
-  const handleRunNow = useCallback(
-    async (e: React.MouseEvent, robotId: string) => {
-      e.stopPropagation();
+  const asksForEvaluationPeriod = (robot: Robot) => {
+    const searchText = `${robot.name} ${robot.description ?? ""} ${robot.script_path ?? ""}`
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    return (
+      searchText.includes("avaliacoes") ||
+      searchText.includes("avaliacao") ||
+      searchText.includes("orquestrador_avaliacoes")
+    );
+  };
+
+  const enqueueRun = useCallback(
+    async (robotId: string, triggeredBy = "dashboard") => {
       setCooldowns((prev) => ({ ...prev, [robotId]: true }));
 
       const { error } = await supabase.from("executions").insert({
         robot_id: robotId,
         status: "pending",
-        triggered_by: "dashboard",
+        triggered_by: triggeredBy,
         triggered_by_user_id: user?.id ?? null,
       });
 
       if (error) {
         toast({ title: "Erro ao enviar comando", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Comando enviado!", description: "Aguardando o agente processar…" });
+        toast({ title: "Comando enviado!", description: "Aguardando o agente processar..." });
         queryClient.invalidateQueries({ queryKey: ["executions"] });
       }
 
       setTimeout(() => setCooldowns((prev) => ({ ...prev, [robotId]: false })), 5000);
     },
-    [queryClient]
+    [queryClient, user?.id]
   );
+
+  const handleRunNow = useCallback(
+    async (e: React.MouseEvent, robot: Robot) => {
+      e.stopPropagation();
+      if (asksForEvaluationPeriod(robot)) {
+        setPeriodRobotId(robot.id);
+        setPeriodDialogOpen(true);
+        return;
+      }
+      await enqueueRun(robot.id);
+    },
+    [enqueueRun]
+  );
+
+  const handleConfirmPeriod = async () => {
+    if (!periodRobotId) return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    const start = periodStart || today;
+    const end = periodEnd || today;
+    await enqueueRun(periodRobotId, `dashboard|avaliacoes_clinico_geral|${start}|${end}`);
+    setPeriodDialogOpen(false);
+    setPeriodRobotId(null);
+  };
 
   const handleStop = useCallback(
     async (e: React.MouseEvent, robotId: string) => {
@@ -81,9 +122,9 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
         .eq("id", running.id);
 
       if (error) {
-        toast({ title: "Erro ao parar robô", description: error.message, variant: "destructive" });
+        toast({ title: "Erro ao parar robo", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Sinal de parada enviado", description: "O agente irá parar em breve." });
+        toast({ title: "Sinal de parada enviado", description: "O agente ira parar em breve." });
         queryClient.invalidateQueries({ queryKey: ["executions"] });
       }
 
@@ -95,6 +136,40 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
 
   return (
     <div className="flex h-full flex-col md:border-r border-border">
+      <Dialog open={periodDialogOpen} onOpenChange={setPeriodDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Periodo da coleta</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="quick-avaliacoes-data-inicial">Data inicial</Label>
+              <Input
+                id="quick-avaliacoes-data-inicial"
+                type="date"
+                value={periodStart}
+                onChange={(event) => setPeriodStart(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="quick-avaliacoes-data-final">Data final</Label>
+              <Input
+                id="quick-avaliacoes-data-final"
+                type="date"
+                value={periodEnd}
+                onChange={(event) => setPeriodEnd(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPeriodDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmPeriod}>Executar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="border-b border-border px-4 py-2.5">
         <h2 className="text-[10px] font-mono font-semibold uppercase tracking-widest text-muted-foreground">
           Agents
@@ -121,17 +196,14 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                     : "hover:bg-accent/50 border border-transparent active:bg-accent/70"
                 )}
               >
-                {/* Selected left accent */}
                 {isSelected && (
                   <div className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-primary" />
                 )}
 
-                {/* Robot icon — larger on mobile */}
                 <span className={cn("shrink-0", isMobile ? "text-xl" : "text-sm")}>
-                  {robot.icon ?? "🤖"}
+                  {robot.icon ?? "R"}
                 </span>
 
-                {/* Name + status */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className={cn("font-medium truncate", isMobile ? "text-sm" : "text-xs")}>
@@ -152,7 +224,6 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                   </div>
                 </div>
 
-                {/* Action buttons — always visible on mobile */}
                 {isRunning || isCancelling ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -174,7 +245,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="left" className="text-xs font-mono">
-                      {isCancelling ? "Parando…" : "Parar execução"}
+                      {isCancelling ? "Parando..." : "Parar execucao"}
                     </TooltipContent>
                   </Tooltip>
                 ) : (
@@ -190,7 +261,7 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                             : "h-7 w-7 opacity-0 group-hover:opacity-100"
                         )}
                         disabled={cooldowns[robot.id]}
-                        onClick={(e) => handleRunNow(e, robot.id)}
+                        onClick={(e) => handleRunNow(e, robot)}
                       >
                         {cooldowns[robot.id] ? (
                           <Loader2 className={cn("animate-spin", isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
@@ -200,12 +271,11 @@ export function AgentsList({ robots, executions, selectedId, onSelect }: AgentsL
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="left" className="text-xs font-mono">
-                      {cooldowns[robot.id] ? "Enviado…" : "Executar agora"}
+                      {cooldowns[robot.id] ? "Enviado..." : "Executar agora"}
                     </TooltipContent>
                   </Tooltip>
                 )}
 
-                {/* Chevron hint on mobile */}
                 {isMobile && (
                   <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                 )}

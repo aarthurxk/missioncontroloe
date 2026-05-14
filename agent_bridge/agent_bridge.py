@@ -159,7 +159,7 @@ def poll_pending() -> list[dict]:
     try:
         r = requests.get(
             f"{SUPABASE_URL}/rest/v1/executions"
-            f"?status=eq.pending&select=id,robot_id&order=started_at.asc&limit=10",
+            f"?status=eq.pending&select=id,robot_id,triggered_by&order=started_at.asc&limit=10",
             headers=HEADERS,
             timeout=10,
         )
@@ -169,17 +169,43 @@ def poll_pending() -> list[dict]:
         return []
 
 
-def build_command(script_path: str) -> list[str]:
+def build_run_args(triggered_by: str | None) -> list[str]:
+    """Traduz parametros opcionais codificados no triggered_by em argumentos de CLI."""
+    text = str(triggered_by or "").strip()
+    parts = text.split("|")
+    if len(parts) != 4:
+        return []
+
+    _source, collection, start_date, end_date = parts
+    collection = collection.strip().lower()
+    if collection != "avaliacoes_clinico_geral":
+        return []
+
+    args = ["--include-avaliacoes"]
+    start_date = start_date.strip()
+    end_date = end_date.strip()
+    if start_date:
+        args.extend(["--data-inicial", start_date])
+    if end_date:
+        args.extend(["--data-final", end_date])
+    return args
+
+
+def build_command(script_path: str, triggered_by: str | None = None) -> list[str]:
     """Monta o comando certo para .py ou .bat."""
     ext = os.path.splitext(script_path)[1].lower()
+    run_args = build_run_args(triggered_by)
     if ext == ".bat":
-        return ["cmd.exe", "/c", script_path] if platform.system() == "Windows" else ["bash", script_path]
+        return (["cmd.exe", "/c", script_path] if platform.system() == "Windows" else ["bash", script_path]) + run_args
+    if ext == ".ps1":
+        shell = "powershell.exe" if platform.system() == "Windows" else "pwsh"
+        return [shell, "-ExecutionPolicy", "Bypass", "-File", script_path] + run_args
     if ext == ".sh":
-        return ["bash", script_path]
-    return [sys.executable, "-u", script_path]
+        return ["bash", script_path] + run_args
+    return [sys.executable, "-u", script_path] + run_args
 
 
-def run_robot(exec_id: str, robot_id: str):
+def run_robot(exec_id: str, robot_id: str, triggered_by: str | None = None):
     with lock:
         running_executions.add(exec_id)
 
@@ -227,7 +253,7 @@ def run_robot(exec_id: str, robot_id: str):
     })
 
     try:
-        cmd = build_command(script_path)
+        cmd = build_command(script_path, triggered_by)
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
@@ -333,10 +359,11 @@ def main():
                 for item in pending[:slots]:
                     exec_id  = item["id"]
                     robot_id = item["robot_id"]
+                    triggered_by = item.get("triggered_by")
                     with lock:
                         if exec_id in running_executions:
                             continue
-                    t = threading.Thread(target=run_robot, args=(exec_id, robot_id), daemon=True)
+                    t = threading.Thread(target=run_robot, args=(exec_id, robot_id, triggered_by), daemon=True)
                     t.start()
 
         except Exception as e:

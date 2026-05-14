@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "./StatusBadge";
@@ -29,6 +32,9 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
   const { data: executions = [] } = useRobotExecutions(robot?.id ?? null);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("terminal");
+  const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
@@ -65,12 +71,20 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
   const latestExec = executions[0];
   const terminalExec = runningExec ?? latestExec;
   const currentStatus = executions[0]?.status ?? "idle";
+  const robotSearchText = `${robot.name} ${robot.description ?? ""} ${robot.script_path ?? ""}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const asksForEvaluationPeriod =
+    robotSearchText.includes("avaliacoes") ||
+    robotSearchText.includes("avaliacao") ||
+    robotSearchText.includes("orquestrador_avaliacoes");
 
-  const handleExecute = async () => {
+  const createExecution = async (triggeredBy = "manual") => {
     const { error } = await supabase.from("executions").insert({
       robot_id: robot.id,
       status: "pending",
-      triggered_by: "manual",
+      triggered_by: triggeredBy,
       triggered_by_user_id: user?.id ?? null,
     });
     if (error) {
@@ -79,6 +93,22 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
       queryClient.invalidateQueries({ queryKey: ["executions"] });
       toast.success("Execução iniciada");
     }
+  };
+
+  const handleExecute = async () => {
+    if (asksForEvaluationPeriod) {
+      setPeriodDialogOpen(true);
+      return;
+    }
+    await createExecution();
+  };
+
+  const handleConfirmPeriod = async () => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    const start = periodStart || today;
+    const end = periodEnd || today;
+    await createExecution(`manual|avaliacoes_clinico_geral|${start}|${end}`);
+    setPeriodDialogOpen(false);
   };
 
   const handleToggle = async (checked: boolean) => {
@@ -90,6 +120,39 @@ export function RobotDetailDrawer({ robot, open, onClose }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+      <Dialog open={periodDialogOpen} onOpenChange={setPeriodDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Periodo da coleta</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-2">
+            <div className="grid gap-2">
+              <Label htmlFor="avaliacoes-data-inicial">Data inicial</Label>
+              <Input
+                id="avaliacoes-data-inicial"
+                type="date"
+                value={periodStart}
+                onChange={(event) => setPeriodStart(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="avaliacoes-data-final">Data final</Label>
+              <Input
+                id="avaliacoes-data-final"
+                type="date"
+                value={periodEnd}
+                onChange={(event) => setPeriodEnd(event.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPeriodDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmPeriod}>Executar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <SheetContent
         side={isMobile ? "bottom" : "right"}
         className={

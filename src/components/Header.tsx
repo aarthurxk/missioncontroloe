@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useAuth } from "@/contexts/AuthContext";
 import { useBridgeStatus } from "@/hooks/useBridgeStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle, Bot } from "lucide-react";
+import { LayoutDashboard, ScrollText, BarChart3, Map, Settings, LogOut, CalendarClock, UserCircle, Bot, Download } from "lucide-react";
 
 interface HeaderProps {
   runningCount: number;
@@ -50,6 +50,7 @@ export function Header({ runningCount }: HeaderProps) {
               <NavLink to="/" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</NavLink>
               <NavLink to="/logs" icon={<ScrollText className="h-4 w-4" />}>Logs</NavLink>
               <NavLink to="/analytics" icon={<BarChart3 className="h-4 w-4" />}>Analytics</NavLink>
+              <NavLink to="/downloads" icon={<Download className="h-4 w-4" />}>Downloads</NavLink>
               <NavLink to="/roadmap" icon={<Map className="h-4 w-4" />}>Roadmap</NavLink>
               <NavLink to="/scheduler" icon={<CalendarClock className="h-4 w-4" />}>Agenda</NavLink>
               {role === "admin" && (

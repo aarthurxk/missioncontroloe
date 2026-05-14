@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, ScrollText, BarChart3, CalendarClock, Settings } from "lucide-react";
+import { LayoutDashboard, ScrollText, BarChart3, CalendarClock, Settings, Download } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,7 @@ const tabs = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/logs", icon: ScrollText, label: "Logs" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
+  { to: "/downloads", icon: Download, label: "Downloads" },
   { to: "/scheduler", icon: CalendarClock, label: "Agenda" },
 ];
 

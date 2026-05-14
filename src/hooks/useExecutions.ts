@@ -21,6 +21,7 @@ export function useExecutions() {
       const { data, error } = await supabase
         .from("executions")
         .select("*, robots(*)")
+        .not("triggered_by", "like", "download|%")
         .order("started_at", { ascending: false });
       if (error) throw error;
 
@@ -60,6 +61,7 @@ export function useRobotExecutions(robotId: string | null) {
         .from("executions")
         .select("*")
         .eq("robot_id", robotId!)
+        .not("triggered_by", "like", "download|%")
         .order("started_at", { ascending: false })
         .limit(50);
       if (error) throw error;

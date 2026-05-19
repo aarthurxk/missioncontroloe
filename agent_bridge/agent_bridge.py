@@ -320,7 +320,7 @@ def run_robot(exec_id: str, robot_id: str, triggered_by: str | None = None):
                 "finished_at": now_iso(),
             })
             print(f"[bridge] ❌  {robot_id[:8]} erro código {process.returncode} ({duration}s)", flush=True)
-            send_push_notification(exec_id, robot_id, "error")
+            # Push é enviado pelo trigger do banco (notify-execution-complete). Não duplicar aqui.
 
     except Exception as e:
         duration = int(time.time() - start_time)

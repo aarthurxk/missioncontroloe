@@ -59,7 +59,7 @@ const DownloadsPage = () => {
 
       if (error) throw error;
       if (!data) return null;
-      const execution = data as DownloadExecution;
+      const execution = data as unknown as DownloadExecution;
       const metadata = execution.error_message ? JSON.parse(execution.error_message) : {};
       return {
         filename: metadata.filename ?? "Cadastros_Centralizados.xlsx",

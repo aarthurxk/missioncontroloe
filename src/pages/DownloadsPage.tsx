@@ -28,16 +28,11 @@ type DownloadExecution = {
 
 function base64ToBlob(content: string, mimeType: string) {
   const byteCharacters = atob(content);
-  const chunks: Uint8Array[] = [];
-  for (let offset = 0; offset < byteCharacters.length; offset += 1024) {
-    const slice = byteCharacters.slice(offset, offset + 1024);
-    const bytes = new Uint8Array(slice.length);
-    for (let index = 0; index < slice.length; index += 1) {
-      bytes[index] = slice.charCodeAt(index);
-    }
-    chunks.push(bytes);
+  const bytes = new Uint8Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i += 1) {
+    bytes[i] = byteCharacters.charCodeAt(i);
   }
-  return new Blob(chunks, { type: mimeType });
+  return new Blob([bytes.buffer as ArrayBuffer], { type: mimeType });
 }
 
 function formatBytes(bytes: number) {
@@ -64,7 +59,7 @@ const DownloadsPage = () => {
 
       if (error) throw error;
       if (!data) return null;
-      const execution = data as DownloadExecution;
+      const execution = data as unknown as DownloadExecution;
       const metadata = execution.error_message ? JSON.parse(execution.error_message) : {};
       return {
         filename: metadata.filename ?? "Cadastros_Centralizados.xlsx",
